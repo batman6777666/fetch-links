@@ -1,23 +1,18 @@
-# Dependencies
-node_modules/
+# Ignore old root files (restructured to frontend/ and backend/)
+index.html
+server.js
+package.json
+package-lock.json
 
-# Environment
+# Ignore node_modules everywhere
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Environment files
 .env
 .env.local
 
 # IDE
 .vscode/
 .idea/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-npm-debug.log*
-
-# Cache
-.cache/
-__pycache__/
-*.pyc
