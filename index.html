@@ -1214,7 +1214,7 @@
       showSB('fetchSB'); setSBText('fetchStatus', 'Connecting…');
       document.getElementById('fetchResultsWrap').style.display = 'block';
 
-      fetchES = new EventSource('/api/fetch?urls=' + encodeURIComponent(urls.join(',')));
+      fetchES = new EventSource('https://fetch-links.onrender.com/api/fetch?urls=' + encodeURIComponent(urls.join(',')));
       fetchES.onmessage = e => { try { handleFetchEvent(JSON.parse(e.data)); } catch { } };
       fetchES.onerror = () => { if (isFetching) { setSBText('fetchStatus', 'Connection lost'); stopFetch(); } };
     }
@@ -1272,15 +1272,15 @@
       if (fetchES) { fetchES.close(); fetchES = null; }
     }
 
-    function clearFetch() {
-      stopFetch();
-      fetch('/api/clear', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => { });
-      document.getElementById('urlInput').value = '';
-      resetFetchResults();
-      document.getElementById('fetchResultsWrap').style.display = 'none';
-      hideSB('fetchSB');
-      showToast('Cleared');
-    }
+     function clearFetch() {
+       stopFetch();
+       fetch('https://fetch-links.onrender.com/api/clear', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => { });
+       document.getElementById('urlInput').value = '';
+       resetFetchResults();
+       document.getElementById('fetchResultsWrap').style.display = 'none';
+       hideSB('fetchSB');
+       showToast('Cleared');
+     }
 
     function resetFetchResults() {
       fetchLinks = []; fetchMap = {}; fetchTotal = 0; fetchDone = 0;
@@ -1317,7 +1317,7 @@
       setProg('gdProg', 0, gdTotal);
       setSBText('gdStatus', `Resolving ${gdTotal} URL${gdTotal > 1 ? 's' : ''}…`);
 
-      gdES = new EventSource('/api/gdirect?urls=' + encodeURIComponent(urls.join(',')));
+       gdES = new EventSource('https://fetch-links.onrender.com/api/gdirect?urls=' + encodeURIComponent(urls.join(',')));
       gdES.onmessage = e => { try { handleGdEvent(JSON.parse(e.data)); } catch { } };
       gdES.onerror = () => { if (isGd) { setSBText('gdStatus', 'Connection lost'); stopGd(); } };
     }
@@ -1356,15 +1356,15 @@
       if (gdES) { gdES.close(); gdES = null; }
     }
 
-    function clearGd() {
-      stopGd();
-      fetch('/api/clear', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => { });
-      document.getElementById('gdInput').value = '';
-      resetGdResults();
-      document.getElementById('gdResultsWrap').style.display = 'none';
-      hideSB('gdSB');
-      showToast('Cleared');
-    }
+     function clearGd() {
+       stopGd();
+       fetch('https://fetch-links.onrender.com/api/clear', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => { });
+       document.getElementById('gdInput').value = '';
+       resetGdResults();
+       document.getElementById('gdResultsWrap').style.display = 'none';
+       hideSB('gdSB');
+       showToast('Cleared');
+     }
 
     function resetGdResults() {
       gdLinks = []; gdRows = []; gdTotal = 0; gdDone = 0;
@@ -1422,8 +1422,8 @@
       // Render status cards (one per URL)
       renderStatusCards(urls);
 
-      // Connect SSE to backend
-      wES = new EventSource('/api/watch?urls=' + encodeURIComponent(urls.join(',')));
+       // Connect SSE to backend
+       wES = new EventSource('https://fetch-links.onrender.com/api/watch?urls=' + encodeURIComponent(urls.join(',')));
       wES.onmessage = e => { try { handleWatchEvent(JSON.parse(e.data), urls); } catch { } };
       wES.onerror = () => { if (wRunning) { document.getElementById('watchSubStatus').textContent = 'Connection lost'; stopWatching(false); } };
     }
@@ -1543,16 +1543,16 @@
       showToast('✓ All 10 cycles complete!');
     }
 
-    function stopWatching(manual) {
-      wRunning = false;
-      if (wES) { wES.close(); wES = null; }
-      fetch('/api/watch/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => { });
-      setBtn('watchBtn', 'watchBtnText', 'watchSpinner', false, '👁 START WATCHING');
-      document.getElementById('watchStateBadge').className = 'watch-state-badge paused';
-      document.getElementById('watchStateBadge').textContent = '■ STOPPED';
-      document.getElementById('watchSubStatus').textContent = 'Stopped.';
-      if (manual) showToast('Stopped — browser windows closed');
-    }
+     function stopWatching(manual) {
+       wRunning = false;
+       if (wES) { wES.close(); wES = null; }
+       fetch('https://fetch-links.onrender.com/api/watch/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => { });
+       setBtn('watchBtn', 'watchBtnText', 'watchSpinner', false, '👁 START WATCHING');
+       document.getElementById('watchStateBadge').className = 'watch-state-badge paused';
+       document.getElementById('watchStateBadge').textContent = '■ STOPPED';
+       document.getElementById('watchSubStatus').textContent = 'Stopped.';
+       if (manual) showToast('Stopped — browser windows closed');
+     }
 
     function clearWatch() {
       stopWatching(false);
