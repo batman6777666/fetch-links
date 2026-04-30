@@ -70,7 +70,6 @@ let browserReady = false;
 async function getBrowser() {
     if (browser && browser.isConnected()) return browser;
     browser = await chromium.launch({
-        executablePath: '/usr/bin/chromium',
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -597,7 +596,6 @@ let watchBrowserInstance = null;
 async function getWatchBrowser() {
     if (watchBrowserInstance && watchBrowserInstance.isConnected()) return watchBrowserInstance;
     watchBrowserInstance = await chromium.launch({
-        executablePath: '/usr/bin/chromium',
         headless: false,
         args: [
             '--no-sandbox', '--disable-setuid-sandbox',
