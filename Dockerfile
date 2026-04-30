@@ -1,4 +1,4 @@
-# Dockerfile for fetch-links — Render deployment
+# Dockerfile for fetch-links backend — Render deployment
 FROM node:18-bullseye-slim
 
 # Install OS-level libraries that Playwright's bundled Chromium needs
@@ -27,19 +27,20 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy package files first for better layer caching
-COPY package*.json ./
+# Copy only the backend package files
+COPY backend/package*.json ./
 
 RUN npm install --omit=dev
 
-# Download Playwright's own Chromium binary (headless-shell) into the image
+# Download Playwright's own Chromium binary into the image
 RUN npx playwright install chromium
 
-# Copy the rest of the app source
-COPY . .
+# Copy only the backend source (server.js etc.) — frontend is excluded
+COPY backend/ .
 
 ENV NODE_OPTIONS="--max-old-space-size=512"
 
 EXPOSE 10000
 
 CMD ["node", "server.js"]
+
