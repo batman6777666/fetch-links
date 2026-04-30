@@ -1099,6 +1099,11 @@
   <div id="toast"></div>
 
   <script>
+    // ═══════════════════════════════════════════════════════════════════════
+    //  CONFIGURATION - Render Backend URL
+    // ═══════════════════════════════════════════════════════════════════════
+    const API_BASE = "https://fetch-links.onrender.com";
+
     // ═══════════════════════════════════════════════════
     //  TAB SWITCHING
     // ═══════════════════════════════════════════════════
@@ -1214,7 +1219,7 @@
       showSB('fetchSB'); setSBText('fetchStatus', 'Connecting…');
       document.getElementById('fetchResultsWrap').style.display = 'block';
 
-      fetchES = new EventSource('https://fetch-links.onrender.com/api/fetch?urls=' + encodeURIComponent(urls.join(',')));
+      fetchES = new EventSource(API_BASE + '/api/fetch?urls=' + encodeURIComponent(urls.join(',')));
       fetchES.onmessage = e => { try { handleFetchEvent(JSON.parse(e.data)); } catch { } };
       fetchES.onerror = () => { if (isFetching) { setSBText('fetchStatus', 'Connection lost'); stopFetch(); } };
     }
@@ -1274,7 +1279,7 @@
 
      function clearFetch() {
        stopFetch();
-       fetch('https://fetch-links.onrender.com/api/clear', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => { });
+       fetch(API_BASE + '/api/clear', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => { });
        document.getElementById('urlInput').value = '';
        resetFetchResults();
        document.getElementById('fetchResultsWrap').style.display = 'none';
@@ -1317,7 +1322,7 @@
       setProg('gdProg', 0, gdTotal);
       setSBText('gdStatus', `Resolving ${gdTotal} URL${gdTotal > 1 ? 's' : ''}…`);
 
-       gdES = new EventSource('https://fetch-links.onrender.com/api/gdirect?urls=' + encodeURIComponent(urls.join(',')));
+       gdES = new EventSource(API_BASE + '/api/gdirect?urls=' + encodeURIComponent(urls.join(',')));
       gdES.onmessage = e => { try { handleGdEvent(JSON.parse(e.data)); } catch { } };
       gdES.onerror = () => { if (isGd) { setSBText('gdStatus', 'Connection lost'); stopGd(); } };
     }
@@ -1358,7 +1363,7 @@
 
      function clearGd() {
        stopGd();
-       fetch('https://fetch-links.onrender.com/api/clear', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => { });
+       fetch(API_BASE + '/api/clear', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => { });
        document.getElementById('gdInput').value = '';
        resetGdResults();
        document.getElementById('gdResultsWrap').style.display = 'none';
@@ -1423,7 +1428,7 @@
       renderStatusCards(urls);
 
        // Connect SSE to backend
-       wES = new EventSource('https://fetch-links.onrender.com/api/watch?urls=' + encodeURIComponent(urls.join(',')));
+       wES = new EventSource(API_BASE + '/api/watch?urls=' + encodeURIComponent(urls.join(',')));
       wES.onmessage = e => { try { handleWatchEvent(JSON.parse(e.data), urls); } catch { } };
       wES.onerror = () => { if (wRunning) { document.getElementById('watchSubStatus').textContent = 'Connection lost'; stopWatching(false); } };
     }
@@ -1546,7 +1551,7 @@
      function stopWatching(manual) {
        wRunning = false;
        if (wES) { wES.close(); wES = null; }
-       fetch('https://fetch-links.onrender.com/api/watch/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => { });
+       fetch(API_BASE + '/api/watch/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => { });
        setBtn('watchBtn', 'watchBtnText', 'watchSpinner', false, '👁 START WATCHING');
        document.getElementById('watchStateBadge').className = 'watch-state-badge paused';
        document.getElementById('watchStateBadge').textContent = '■ STOPPED';

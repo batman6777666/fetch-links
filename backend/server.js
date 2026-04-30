@@ -8,7 +8,7 @@ const { execSync } = require('child_process');
 const { v4: uuidv4 } = require('uuid');
 
 const app = express();
-const PORT = process.env.PORT || 7860;
+const PORT = process.env.PORT || 10000;
 
 // Enable CORS for all origins (required for Cloudflare Pages frontend)
 app.use(cors({
@@ -751,7 +751,7 @@ async function freePort(port) {
 async function start() {
     await freePort(PORT);
     await getBrowser();
-    // HuggingFace requires binding to 0.0.0.0
+    // Render requires binding to 0.0.0.0
     const server = app.listen(PORT, "0.0.0.0", () =>
         console.log(`\n🔗 LINK FETCHER → http://0.0.0.0:${PORT}\n`)
     );
