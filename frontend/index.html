@@ -4,504 +4,168 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LINK FETCHER</title>
+    <title>Fetch Links</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
         rel="stylesheet" />
     <style>
-        *,
-        *::before,
-        *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-            --bg: #080810;
-            --surface: #0f0f1a;
-            --card: #13131f;
-            --border: #1e1e35;
-            --accent: #7c3aed;
-            --accent2: #a855f7;
-            --green: #10b981;
-            --red: #ef4444;
-            --gold: #f59e0b;
-            --text: #e2e8f0;
-            --muted: #64748b;
-            --link: #818cf8;
+            --bg: #000000;
+            --surface: #0a0a0a;
+            --card: #0f0f0f;
+            --border: #1a1a1a;
+            --border-hover: #2a2a2a;
+            --accent: #8b5cf6;
+            --accent-light: #a78bfa;
+            --accent-glow: rgba(139, 92, 246, 0.15);
+            --accent-glow-strong: rgba(139, 92, 246, 0.3);
+            --green: #34d399;
+            --green-glow: rgba(52, 211, 153, 0.15);
+            --red: #f87171;
+            --red-glow: rgba(248, 113, 113, 0.15);
+            --amber: #fbbf24;
+            --amber-glow: rgba(251, 191, 36, 0.12);
+            --text: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #475569;
+            --link: #a78bfa;
+            --radius: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.3);
+            --shadow-lg: 0 4px 24px rgba(0,0,0,0.5), 0 12px 48px rgba(0,0,0,0.3);
+            --transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        html {
-            scroll-behavior: smooth;
-        }
+        html { scroll-behavior: smooth; }
 
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--bg);
             color: var(--text);
             min-height: 100vh;
+            min-height: 100dvh;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 0 1rem 5rem;
-            background-image:
-                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(124, 58, 237, 0.15), transparent),
-                radial-gradient(ellipse 60% 40% at 80% 80%, rgba(168, 85, 247, 0.07), transparent);
+            padding: 0 1rem 4rem;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 70% 50% at 50% 0%, rgba(139, 92, 246, 0.08), transparent),
+                radial-gradient(ellipse 50% 40% at 80% 100%, rgba(139, 92, 246, 0.04), transparent);
+            pointer-events: none;
+            z-index: 0;
         }
 
         /* ── HEADER ── */
         header {
             text-align: center;
-            padding: 2.8rem 1rem 1.8rem;
+            padding: 3rem 1rem 2rem;
             width: 100%;
-            max-width: 800px;
+            max-width: 720px;
+            position: relative;
+            z-index: 1;
         }
 
         .logo-row {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 0.75rem;
-            margin-bottom: 0.6rem;
+            gap: 0.85rem;
+            margin-bottom: 0.75rem;
         }
 
         .logo-icon {
-            width: 48px;
-            height: 48px;
-            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
-            box-shadow: 0 0 30px rgba(124, 58, 237, 0.4);
+            font-size: 1.3rem;
+            box-shadow: 0 0 24px rgba(139, 92, 246, 0.35);
             flex-shrink: 0;
         }
 
         h1 {
-            font-size: clamp(1.8rem, 6vw, 3rem);
+            font-size: clamp(1.6rem, 5vw, 2.4rem);
             font-weight: 900;
             letter-spacing: -0.03em;
             line-height: 1;
-            background: linear-gradient(135deg, #c084fc, #818cf8, #7c3aed);
+            background: linear-gradient(135deg, #c4b5fd, #a78bfa, #8b5cf6);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
 
         .subtitle {
-            font-size: 0.85rem;
-            color: var(--muted);
-            font-weight: 400;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-        }
-
-        /* ── TAB SWITCHER ── */
-        .tab-bar {
-            display: flex;
-            gap: 0.4rem;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 0.35rem;
-            margin-bottom: 1.2rem;
-            width: 100%;
-            max-width: 800px;
-        }
-
-        .tab-btn {
-            flex: 1;
-            padding: 0.6rem 1rem;
-            border: none;
-            border-radius: 8px;
-            font-family: 'Inter', sans-serif;
             font-size: 0.8rem;
-            font-weight: 700;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            cursor: pointer;
-            transition: all 0.18s;
-            color: var(--muted);
-            background: transparent;
-        }
-
-        .tab-btn.active {
-            background: linear-gradient(135deg, var(--accent), var(--accent2));
-            color: #fff;
-            box-shadow: 0 2px 14px rgba(124, 58, 237, 0.35);
-        }
-
-        .tab-btn:not(.active):hover {
-            background: rgba(255, 255, 255, 0.04);
-            color: var(--text);
+            color: var(--text-muted);
+            font-weight: 400;
+            letter-spacing: 0.04em;
+            margin-top: 0.35rem;
         }
 
         /* ── MAIN CARD ── */
         .main-card {
             width: 100%;
-            max-width: 800px;
+            max-width: 720px;
             background: var(--card);
             border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 2rem;
-            box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.05), 0 20px 60px rgba(0, 0, 0, 0.4);
+            border-radius: var(--radius-xl);
+            padding: 1.75rem;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            z-index: 1;
         }
 
-        .panel {
-            display: none;
-        }
-
-        .panel.active {
-            display: block;
-        }
-
-        /* ── SECTION LABEL ── */
         .input-label {
-            font-size: 0.72rem;
+            font-size: 0.7rem;
             font-weight: 700;
             letter-spacing: 0.1em;
             text-transform: uppercase;
-            color: var(--muted);
+            color: var(--text-muted);
             margin-bottom: 0.5rem;
         }
 
-        /* ── TEXTAREA ── */
         textarea {
             width: 100%;
-            height: 150px;
+            height: 140px;
             background: var(--surface);
             border: 1.5px solid var(--border);
-            border-radius: 12px;
-            padding: 1rem 1.1rem;
+            border-radius: var(--radius);
+            padding: 0.9rem 1rem;
             color: var(--text);
             font-family: 'Inter', sans-serif;
-            font-size: 0.88rem;
+            font-size: 0.85rem;
             line-height: 1.6;
             resize: vertical;
-            transition: border-color 0.2s, box-shadow 0.2s;
+            transition: border-color var(--transition), box-shadow var(--transition);
             outline: none;
         }
 
         textarea:focus {
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+            box-shadow: 0 0 0 3px var(--accent-glow);
         }
 
-        textarea::placeholder {
-            color: #3d3d5c;
-        }
-
-        /* ── WATCHING YOU ── */
-        .watch-inputs {
-            display: flex;
-            flex-direction: column;
-            gap: 0.55rem;
-            margin-bottom: 1rem;
-        }
-
-        .watch-input-row {
-            display: grid;
-            grid-template-columns: auto 1fr auto;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .watch-num {
-            font-size: 0.68rem;
-            font-weight: 800;
-            letter-spacing: 0.06em;
-            color: var(--gold);
-            background: rgba(245, 158, 11, 0.1);
-            border: 1px solid rgba(245, 158, 11, 0.22);
-            border-radius: 6px;
-            padding: 0.24rem 0.5rem;
-            white-space: nowrap;
-        }
-
-        .watch-url-input {
-            height: auto;
-            min-height: unset;
-            padding: 0.55rem 0.85rem;
-            font-size: 0.82rem;
-            resize: none;
-        }
-
-        .btn-preview {
-            padding: 0.44rem 0.7rem;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            background: transparent;
-            color: var(--muted);
-            cursor: pointer;
-            font-size: 0.82rem;
-            transition: all 0.15s;
-            white-space: nowrap;
-            font-family: 'Inter', sans-serif;
-            font-weight: 600;
-        }
-
-        .btn-preview:hover {
-            background: rgba(255, 255, 255, 0.05);
-            color: var(--text);
-        }
-
-        .watch-status-panel {
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            gap: 1rem;
-            padding: 1rem 0;
-            margin-top: 0.5rem;
-        }
-
-        .watch-status-panel.visible {
-            display: flex;
-        }
-
-        .watch-cycle-row {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-
-        .watch-cycle-badge {
-            font-size: 0.78rem;
-            font-weight: 800;
-            letter-spacing: 0.08em;
-            color: var(--gold);
-            background: rgba(245, 158, 11, 0.1);
-            border: 1px solid rgba(245, 158, 11, 0.25);
-            border-radius: 8px;
-            padding: 0.28rem 0.85rem;
-            text-transform: uppercase;
-        }
-
-        .watch-state-badge {
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 0.25rem 0.7rem;
-            border-radius: 99px;
-        }
-
-        .watch-state-badge.playing {
-            background: rgba(16, 185, 129, 0.12);
-            color: var(--green);
-            animation: pulse 1.2s ease infinite;
-        }
-
-        .watch-state-badge.paused {
-            background: rgba(100, 116, 139, 0.1);
-            color: var(--muted);
-        }
-
-        .watch-state-badge.done {
-            background: rgba(16, 185, 129, 0.1);
-            color: var(--green);
-        }
-
-        .countdown-wrap {
-            position: relative;
-            width: 86px;
-            height: 86px;
-            flex-shrink: 0;
-        }
-
-        .countdown-svg {
-            width: 86px;
-            height: 86px;
-            transform: rotate(-90deg);
-        }
-
-        .countdown-track {
-            fill: none;
-            stroke: var(--border);
-            stroke-width: 6;
-        }
-
-        .countdown-arc {
-            fill: none;
-            stroke: url(#arcGrad);
-            stroke-width: 6;
-            stroke-linecap: round;
-            stroke-dasharray: 251.2;
-            stroke-dashoffset: 0;
-            transition: stroke-dashoffset 0.9s linear;
-        }
-
-        .countdown-text {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .countdown-num {
-            font-size: 1.55rem;
-            font-weight: 900;
-            color: var(--text);
-            line-height: 1;
-        }
-
-        .countdown-lbl {
-            font-size: 0.52rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            color: var(--muted);
-            text-transform: uppercase;
-            margin-top: 3px;
-        }
-
-        .cycle-prog-wrap {
-            width: 100%;
-        }
-
-        .cycle-prog-label {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.7rem;
-            color: var(--muted);
-            font-weight: 600;
-            margin-bottom: 0.32rem;
-        }
-
-        .cycle-prog-track {
-            width: 100%;
-            height: 5px;
-            background: var(--border);
-            border-radius: 99px;
-            overflow: hidden;
-        }
-
-        .cycle-prog-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #92400e, var(--gold));
-            border-radius: 99px;
-            transition: width 0.5s ease;
-            width: 0%;
-        }
-
-        .watch-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.55rem;
-            margin-top: 0.8rem;
-            width: 100%;
-        }
-
-        .watch-vid-slot {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            overflow: hidden;
-            aspect-ratio: 16/9;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .watch-vid-slot video,
-        .watch-vid-slot iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-            display: block;
-        }
-
-        .slot-label {
-            position: absolute;
-            top: 0.35rem;
-            left: 0.35rem;
-            z-index: 2;
-            font-size: 0.6rem;
-            font-weight: 800;
-            letter-spacing: 0.04em;
-            background: rgba(0, 0, 0, 0.65);
-            color: var(--gold);
-            border-radius: 4px;
-            padding: 0.13rem 0.38rem;
-        }
-
-        .empty-slot {
-            color: var(--border);
-            font-size: 0.72rem;
-        }
-
-        /* Status cards — replace the fake video grid */
-        .watch-status-card {
-            background: var(--surface);
-            border: 1px solid rgba(124, 58, 237, 0.15);
-            border-radius: 10px;
-            padding: 0.7rem 0.9rem;
-            display: grid;
-            grid-template-columns: auto auto 1fr;
-            grid-template-rows: auto auto;
-            gap: 0.22rem 0.5rem;
-            align-items: center;
-            animation: slideIn 0.28s ease both;
-            transition: border-color 0.25s;
-        }
-
-        .watch-status-card.empty-slot {
-            border-color: var(--border);
-            opacity: 0.45;
-            place-items: center;
-            display: flex;
-        }
-
-        .wcard-num {
-            font-size: 0.62rem;
-            font-weight: 800;
-            color: var(--gold);
-        }
-
-        .wcard-dot {
-            font-size: 0.9rem;
-            transition: color 0.3s;
-        }
-
-        .wcard-dot.idle {
-            color: var(--muted);
-        }
-
-        .wcard-dot.playing {
-            color: var(--green);
-            animation: pulse 1s ease infinite;
-        }
-
-        .wcard-dot.error {
-            color: var(--red);
-        }
-
-        .wcard-label {
-            font-size: 0.78rem;
-            font-weight: 700;
-            color: var(--text);
-        }
-
-        .wcard-url {
-            grid-column: 1 / -1;
-            font-size: 0.67rem;
-            color: var(--muted);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            margin-top: 0.1rem;
-        }
-
-
+        textarea::placeholder { color: var(--text-muted); }
 
         /* ── BUTTONS ── */
-
         .btn-row {
             display: flex;
-            gap: 0.75rem;
+            gap: 0.6rem;
             margin-top: 1rem;
             flex-wrap: wrap;
         }
@@ -510,83 +174,79 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 0.5rem;
-            padding: 0.72rem 1.4rem;
-            border-radius: 10px;
+            gap: 0.45rem;
+            padding: 0.7rem 1.3rem;
+            border-radius: var(--radius);
             font-family: 'Inter', sans-serif;
-            font-size: 0.88rem;
+            font-size: 0.82rem;
             font-weight: 700;
-            letter-spacing: 0.04em;
+            letter-spacing: 0.03em;
             cursor: pointer;
             border: none;
-            transition: all 0.18s ease;
+            transition: all var(--transition);
             text-transform: uppercase;
             white-space: nowrap;
         }
 
         .btn-primary {
             flex: 1;
-            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
             color: #fff;
-            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.35);
+            box-shadow: 0 2px 16px rgba(139, 92, 246, 0.3);
         }
 
         .btn-primary:hover:not(:disabled) {
             transform: translateY(-1px);
-            box-shadow: 0 8px 28px rgba(124, 58, 237, 0.5);
+            box-shadow: 0 6px 24px rgba(139, 92, 246, 0.45);
         }
 
+        .btn-primary:active:not(:disabled) { transform: translateY(0); }
+
         .btn-primary:disabled {
-            opacity: 0.5;
+            opacity: 0.45;
             cursor: not-allowed;
+            transform: none;
         }
 
         .btn-secondary {
             background: transparent;
-            color: var(--muted);
+            color: var(--text-secondary);
             border: 1.5px solid var(--border);
         }
 
         .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.04);
+            background: rgba(255, 255, 255, 0.03);
             color: var(--text);
+            border-color: var(--border-hover);
         }
 
         .spinner {
-            width: 15px;
-            height: 15px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.25);
             border-top-color: #fff;
             border-radius: 50%;
-            animation: spin 0.7s linear infinite;
+            animation: spin 0.6s linear infinite;
             display: none;
         }
 
-        .fetching .spinner {
-            display: inline-block;
-        }
+        .fetching .spinner { display: inline-block; }
 
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         /* ── STATUS BAR ── */
         .sb {
-            margin-top: 1.4rem;
+            margin-top: 1.25rem;
             display: none;
             flex-direction: column;
-            gap: 0.45rem;
+            gap: 0.4rem;
         }
 
-        .sb.visible {
-            display: flex;
-        }
+        .sb.visible { display: flex; }
 
         .sb-text {
-            font-size: 0.78rem;
-            color: var(--muted);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
             font-weight: 500;
         }
 
@@ -601,7 +261,7 @@
         .prog-fill {
             height: 100%;
             border-radius: 99px;
-            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            background: linear-gradient(90deg, var(--accent), var(--accent-light));
             transition: width 0.4s ease;
             width: 0%;
         }
@@ -613,40 +273,40 @@
             justify-content: space-between;
             flex-wrap: wrap;
             gap: 0.5rem;
-            margin-top: 1.4rem;
-            padding-bottom: 0.7rem;
+            margin-top: 1.25rem;
+            padding-bottom: 0.6rem;
             border-bottom: 1px solid var(--border);
         }
 
         .results-title {
-            font-size: 0.72rem;
+            font-size: 0.68rem;
             font-weight: 700;
             letter-spacing: 0.1em;
             text-transform: uppercase;
-            color: var(--muted);
+            color: var(--text-muted);
         }
 
         .btn-copy-all {
-            font-size: 0.72rem;
-            padding: 0.38rem 0.85rem;
-            border-radius: 7px;
-            background: rgba(124, 58, 237, 0.12);
-            color: var(--accent2);
-            border: 1px solid rgba(124, 58, 237, 0.25);
+            font-size: 0.68rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 8px;
+            background: var(--accent-glow);
+            color: var(--accent-light);
+            border: 1px solid rgba(139, 92, 246, 0.2);
             cursor: pointer;
             font-family: 'Inter', sans-serif;
             font-weight: 700;
-            transition: all 0.16s;
+            transition: all var(--transition);
             text-transform: uppercase;
-            letter-spacing: 0.06em;
+            letter-spacing: 0.05em;
         }
 
-        .btn-copy-all:hover {
-            background: rgba(124, 58, 237, 0.22);
+        .btn-copy-all:hover:not(:disabled) {
+            background: var(--accent-glow-strong);
         }
 
         .btn-copy-all:disabled {
-            opacity: 0.35;
+            opacity: 0.3;
             cursor: not-allowed;
         }
 
@@ -654,232 +314,204 @@
         .result-box {
             display: flex;
             flex-direction: column;
-            gap: 0.45rem;
-            max-height: 460px;
+            gap: 0.4rem;
+            max-height: 420px;
             overflow-y: auto;
             padding-right: 2px;
+            scroll-behavior: smooth;
         }
 
-        .result-box::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        .result-box::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 4px;
-        }
+        .result-box::-webkit-scrollbar { width: 4px; }
+        .result-box::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
         /* ── RESULT ROW ── */
         .ri {
             display: grid;
             grid-template-columns: auto 1fr auto auto;
             align-items: center;
-            gap: 0.7rem;
+            gap: 0.6rem;
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 0.65rem 0.85rem;
-            animation: slideIn 0.28s ease both;
-            transition: border-color 0.2s;
+            border-radius: var(--radius);
+            padding: 0.6rem 0.8rem;
+            animation: slideIn 0.25s ease both;
+            transition: border-color var(--transition);
         }
 
-        .ri.done {
-            border-color: rgba(16, 185, 129, 0.22);
-        }
-
-        .ri.failed {
-            border-color: rgba(239, 68, 68, 0.18);
-        }
-
-        .ri.fetching,
-        .ri.resolving {
-            border-color: rgba(124, 58, 237, 0.2);
-        }
+        .ri.done { border-color: rgba(52, 211, 153, 0.2); }
+        .ri.failed { border-color: rgba(248, 113, 113, 0.18); }
+        .ri.fetching, .ri.resolving { border-color: rgba(139, 92, 246, 0.2); }
 
         @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(7px);
-            }
-
-            to {
-                opacity: 1;
-                transform: none;
-            }
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: none; }
         }
 
         .ri-badge {
-            font-size: 0.68rem;
+            font-size: 0.62rem;
             font-weight: 700;
-            color: var(--accent2);
-            background: rgba(124, 58, 237, 0.12);
-            border: 1px solid rgba(124, 58, 237, 0.2);
+            color: var(--accent-light);
+            background: var(--accent-glow);
+            border: 1px solid rgba(139, 92, 246, 0.15);
             border-radius: 5px;
-            padding: 0.18rem 0.45rem;
+            padding: 0.15rem 0.4rem;
             white-space: nowrap;
         }
 
-        .ri-link-cell {
-            min-width: 0;
-        }
+        .ri-link-cell { min-width: 0; }
 
         .ri-link {
             color: var(--link);
-            font-size: 0.78rem;
+            font-size: 0.75rem;
             text-decoration: none;
             word-break: break-all;
             display: -webkit-box;
             -webkit-line-clamp: 1;
             -webkit-box-orient: vertical;
             overflow: hidden;
-            transition: color 0.15s;
+            transition: color var(--transition);
         }
 
-        .ri-link:hover {
-            color: #c4b5fd;
-            text-decoration: underline;
-        }
+        .ri-link:hover { color: #c4b5fd; text-decoration: underline; }
 
         .ri-err {
-            font-size: 0.76rem;
+            font-size: 0.72rem;
             color: var(--red);
             opacity: 0.8;
             font-style: italic;
         }
 
         .ri-ph {
-            font-size: 0.76rem;
-            color: var(--muted);
+            font-size: 0.72rem;
+            color: var(--text-muted);
             font-style: italic;
         }
 
         .ri-status {
-            font-size: 0.68rem;
+            font-size: 0.62rem;
             font-weight: 700;
             white-space: nowrap;
-            padding: 0.18rem 0.52rem;
+            padding: 0.15rem 0.45rem;
             border-radius: 99px;
         }
 
-        .ri-status.fetching,
-        .ri-status.resolving {
-            background: rgba(124, 58, 237, 0.12);
-            color: var(--accent2);
+        .ri-status.fetching, .ri-status.resolving {
+            background: var(--accent-glow);
+            color: var(--accent-light);
             animation: pulse 1.4s ease infinite;
         }
 
         .ri-status.done {
-            background: rgba(16, 185, 129, 0.1);
+            background: var(--green-glow);
             color: var(--green);
         }
 
         .ri-status.failed {
-            background: rgba(239, 68, 68, 0.1);
+            background: var(--red-glow);
             color: var(--red);
         }
 
         .ri-status.waiting {
-            background: rgba(100, 116, 139, 0.1);
-            color: var(--muted);
+            background: rgba(71, 85, 105, 0.1);
+            color: var(--text-muted);
         }
 
         @keyframes pulse {
-
-            0%,
-            100% {
-                opacity: 1
-            }
-
-            50% {
-                opacity: 0.45
-            }
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
         }
 
         .btn-copy-one {
-            font-size: 0.68rem;
-            padding: 0.22rem 0.55rem;
+            font-size: 0.62rem;
+            padding: 0.2rem 0.5rem;
             border-radius: 6px;
             background: transparent;
-            color: var(--muted);
+            color: var(--text-muted);
             border: 1px solid var(--border);
             cursor: pointer;
             font-family: 'Inter', sans-serif;
             font-weight: 700;
-            transition: all 0.15s;
+            transition: all var(--transition);
             white-space: nowrap;
         }
 
         .btn-copy-one:hover {
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.04);
             color: var(--text);
         }
 
         .btn-copy-one.copied {
             color: var(--green);
-            border-color: rgba(16, 185, 129, 0.3);
+            border-color: rgba(52, 211, 153, 0.3);
         }
 
         /* ── EMPTY STATE ── */
         .empty-state {
-            padding: 2.5rem 1rem;
+            padding: 2rem 1rem;
             text-align: center;
-            color: var(--muted);
-            font-size: 0.83rem;
-        }
-
-        /* ── GD INFO BOX ── */
-        .info-box {
-            background: rgba(124, 58, 237, 0.07);
-            border: 1px solid rgba(124, 58, 237, 0.18);
-            border-radius: 10px;
-            padding: 0.85rem 1rem;
-            margin-bottom: 1.1rem;
+            color: var(--text-muted);
             font-size: 0.8rem;
-            color: var(--muted);
-            line-height: 1.55;
-        }
-
-        .info-box strong {
-            color: var(--accent2);
         }
 
         /* ── TOAST ── */
         #toast {
             position: fixed;
-            bottom: 2rem;
+            bottom: 1.5rem;
             left: 50%;
             transform: translateX(-50%) translateY(80px);
-            background: #1e1e35;
+            background: var(--card);
             border: 1px solid var(--border);
             color: var(--text);
-            padding: 0.65rem 1.35rem;
+            padding: 0.6rem 1.2rem;
             border-radius: 99px;
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             font-weight: 600;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-            transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
             z-index: 999;
             pointer-events: none;
         }
 
-        #toast.show {
-            transform: translateX(-50%) translateY(0);
+        #toast.show { transform: translateX(-50%) translateY(0); }
+
+        /* ── FOOTER ── */
+        footer {
+            margin-top: 2rem;
+            text-align: center;
+            font-size: 0.68rem;
+            color: var(--text-muted);
+            position: relative;
+            z-index: 1;
         }
 
+        footer a {
+            color: var(--accent-light);
+            text-decoration: none;
+        }
+
+        footer a:hover { text-decoration: underline; }
+
         /* ── RESPONSIVE ── */
-        @media (max-width: 480px) {
+        @media (max-width: 640px) {
+            body { padding: 0 0.75rem 3rem; }
+
+            header { padding: 2rem 0.5rem 1.5rem; }
+
             .main-card {
-                padding: 1.2rem;
-                border-radius: 16px;
+                padding: 1.25rem;
+                border-radius: var(--radius-lg);
             }
 
-            header {
-                padding: 2rem 0.5rem 1.2rem;
-            }
+            textarea { height: 120px; font-size: 0.82rem; }
+
+            .btn-row { gap: 0.5rem; }
+
+            .btn { padding: 0.65rem 1rem; font-size: 0.78rem; }
 
             .ri {
                 grid-template-columns: auto 1fr;
                 grid-template-rows: auto auto;
+                gap: 0.4rem 0.5rem;
             }
 
             .ri-status {
@@ -897,6 +529,33 @@
                 grid-column: 2;
                 grid-row: 1;
             }
+
+            .results-hdr { flex-direction: column; align-items: flex-start; }
+        }
+
+        @media (max-width: 380px) {
+            .main-card { padding: 1rem; }
+
+            .logo-icon { width: 36px; height: 36px; font-size: 1.1rem; }
+
+            h1 { font-size: 1.4rem; }
+
+            .btn { width: 100%; }
+
+            .btn-row { flex-direction: column; }
+        }
+
+        @media (min-width: 1024px) {
+            .main-card { padding: 2.25rem; }
+            textarea { height: 160px; }
+        }
+
+        /* ── REDUCED MOTION ── */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
         }
     </style>
 </head>
@@ -907,240 +566,81 @@
     <header>
         <div class="logo-row">
             <div class="logo-icon">🔗</div>
-            <h1>LINK FETCHER</h1>
+            <h1>Fetch Links</h1>
         </div>
-        <p class="subtitle">Automated · Direct Download · Link Extractor</p>
+        <p class="subtitle">Extract direct download links automatically</p>
     </header>
-
-    <!-- TAB BAR -->
-    <div class="tab-bar">
-        <button class="tab-btn active" id="tabFetch" onclick="switchTab('fetch')">⚡ Link Fetcher</button>
-        <button class="tab-btn" id="tabGd" onclick="switchTab('gd')">🔓 GD Direct Link</button>
-        <button class="tab-btn" id="tabWatch" onclick="switchTab('watch')">👁 Watching You</button>
-    </div>
 
     <!-- MAIN CARD -->
     <div class="main-card">
-
-        <!-- ══════════════ TAB 1: LINK FETCHER ══════════════ -->
-        <div class="panel active" id="panelFetch">
-            <div class="input-label">FXLinks URLs (1–10)</div>
-            <textarea id="urlInput" placeholder="Paste FXLinks URLs here (1-10 links, one per line)"
-                spellcheck="false"></textarea>
-            <div class="btn-row">
-                <button id="fetchBtn" class="btn btn-primary" onclick="startFetching()">
-                    <span class="spinner" id="fetchSpinner"></span>
-                    <span id="fetchBtnText">⚡ START FETCHING</span>
-                </button>
-                <button class="btn btn-secondary" onclick="clearFetch()">✕ CLEAR</button>
-            </div>
-
-            <!-- Status -->
-            <div class="sb" id="fetchSB">
-                <div class="sb-text" id="fetchStatus">Ready</div>
-                <div class="prog-track">
-                    <div class="prog-fill" id="fetchProg"></div>
-                </div>
-            </div>
-
-            <!-- Results -->
-            <div id="fetchResultsWrap" style="display:none;">
-                <div class="results-hdr">
-                    <span class="results-title" id="fetchResultsTitle">Results</span>
-                    <button class="btn-copy-all" id="fetchCopyAll" onclick="copyAll('fetch')" disabled>⧉ Copy All
-                        Links</button>
-                </div>
-                <div class="result-box" id="fetchBox">
-                    <div class="empty-state">Waiting for results…</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ══════════════ TAB 2: GD DIRECT LINK ══════════════ -->
-        <div class="panel" id="panelGd">
-            <div class="info-box">
-                <strong>🔓 Google Drive Direct Link Generator</strong><br>
-                Paste Google Drive download URLs (any format). The tool opens each link, reads the
-                <strong>"Download anyway"</strong> href which contains the CDN token — returning
-                the real direct download URL you'd get by right-clicking inside the box.
-            </div>
-
-            <div class="input-label">Google Drive URLs (1–20, one per line)</div>
-            <textarea id="gdInput"
-                placeholder="Paste Google Drive URLs here — any format:&#10;https://drive.usercontent.google.com/download?export=download&id=...&#10;https://drive.google.com/file/d/FILE_ID/view&#10;https://drive.google.com/open?id=FILE_ID"
-                spellcheck="false"></textarea>
-
-            <div class="btn-row">
-                <button id="gdBtn" class="btn btn-primary" onclick="startGdirect()">
-                    <span class="spinner" id="gdSpinner"></span>
-                    <span id="gdBtnText">🔓 GENERATE DIRECT LINKS</span>
-                </button>
-                <button class="btn btn-secondary" onclick="clearGd()">✕ CLEAR</button>
-            </div>
-
-            <!-- Status -->
-            <div class="sb" id="gdSB">
-                <div class="sb-text" id="gdStatus">Ready</div>
-                <div class="prog-track">
-                    <div class="prog-fill" id="gdProg"></div>
-                </div>
-            </div>
-
-            <!-- Results -->
-            <div id="gdResultsWrap" style="display:none;">
-                <div class="results-hdr">
-                    <span class="results-title" id="gdResultsTitle">Direct Links</span>
-                    <button class="btn-copy-all" id="gdCopyAll" onclick="copyAll('gd')" disabled>⧉ Copy All
-                        Links</button>
-                </div>
-                <div class="result-box" id="gdBox">
-                    <div class="empty-state">Waiting for results…</div>
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-    <!-- ══════════════ TAB 3: WATCHING YOU ══════════════ -->
-    <div class="panel" id="panelWatch">
-
-        <!-- Description -->
-        <div class="info-box" style="border-color:rgba(245,158,11,0.22);background:rgba(245,158,11,0.06);">
-            <strong style="color:var(--gold)">👁 Watching You</strong><br>
-            Add up to 4 video links. Each video plays for <strong>15 seconds</strong>, then stops.
-            This repeats <strong>10 cycles</strong> for all videos simultaneously. A live countdown timer shows
-            progress.
-        </div>
-
-        <!-- 4 URL inputs -->
-        <div class="watch-inputs">
-            <div class="watch-input-row">
-                <span class="watch-num">01</span>
-                <input type="url" class="watch-url-input" id="wUrl1"
-                    placeholder="Video URL (YouTube, direct .mp4, etc.)" />
-                <button class="btn-preview" onclick="previewWatch(1)" title="Open preview">▶</button>
-            </div>
-            <div class="watch-input-row">
-                <span class="watch-num">02</span>
-                <input type="url" class="watch-url-input" id="wUrl2" placeholder="Video URL (optional)" />
-                <button class="btn-preview" onclick="previewWatch(2)" title="Open preview">▶</button>
-            </div>
-            <div class="watch-input-row">
-                <span class="watch-num">03</span>
-                <input type="url" class="watch-url-input" id="wUrl3" placeholder="Video URL (optional)" />
-                <button class="btn-preview" onclick="previewWatch(3)" title="Open preview">▶</button>
-            </div>
-            <div class="watch-input-row">
-                <span class="watch-num">04</span>
-                <input type="url" class="watch-url-input" id="wUrl4" placeholder="Video URL (optional)" />
-                <button class="btn-preview" onclick="previewWatch(4)" title="Open preview">▶</button>
-            </div>
-        </div>
-
-        <!-- Buttons -->
+        <div class="input-label">FXLinks URLs (1–10)</div>
+        <textarea id="urlInput" placeholder="Paste FXLinks URLs here, one per line"
+            spellcheck="false" autocomplete="off"></textarea>
         <div class="btn-row">
-            <button id="watchBtn" class="btn btn-primary"
-                style="background:linear-gradient(135deg,#92400e,var(--gold));box-shadow:0 4px 20px rgba(245,158,11,0.3);"
-                onclick="startWatching()">
-                <span class="spinner" id="watchSpinner"></span>
-                <span id="watchBtnText">👁 START WATCHING</span>
+            <button id="fetchBtn" class="btn btn-primary" onclick="startFetching()">
+                <span class="spinner" id="fetchSpinner"></span>
+                <span id="fetchBtnText">Start Fetching</span>
             </button>
-            <button class="btn btn-secondary" onclick="stopWatching(true)">⏹ STOP</button>
-            <button class="btn btn-secondary" onclick="clearWatch()">✕ CLEAR</button>
+            <button class="btn btn-secondary" onclick="clearFetch()">Clear</button>
         </div>
 
-        <!-- Status Panel -->
-        <div class="watch-status-panel" id="watchStatusPanel">
-
-            <!-- Cycle badge + state -->
-            <div class="watch-cycle-row">
-                <span class="watch-cycle-badge" id="watchCycleBadge">CYCLE 0 / 10</span>
-                <span class="watch-state-badge playing" id="watchStateBadge">● PLAYING</span>
+        <!-- Status -->
+        <div class="sb" id="fetchSB">
+            <div class="sb-text" id="fetchStatus">Ready</div>
+            <div class="prog-track">
+                <div class="prog-fill" id="fetchProg"></div>
             </div>
-
-            <!-- Countdown ring + cycle bar side by side -->
-            <div style="display:flex;align-items:center;gap:1.5rem;width:100%;flex-wrap:wrap;justify-content:center;">
-                <!-- SVG ring -->
-                <div class="countdown-wrap" id="countdownWrap">
-                    <svg class="countdown-svg" viewBox="0 0 88 88">
-                        <defs>
-                            <linearGradient id="arcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                                <stop offset="0%" stop-color="#92400e" />
-                                <stop offset="100%" stop-color="#f59e0b" />
-                            </linearGradient>
-                        </defs>
-                        <circle class="countdown-track" cx="44" cy="44" r="40" />
-                        <circle class="countdown-arc" id="countdownArc" cx="44" cy="44" r="40" />
-                    </svg>
-                    <div class="countdown-text">
-                        <span class="countdown-num" id="countdownNum">15</span>
-                        <span class="countdown-lbl">seconds</span>
-                    </div>
-                </div>
-
-                <!-- Cycle progress -->
-                <div class="cycle-prog-wrap" style="flex:1;min-width:160px;">
-                    <div class="cycle-prog-label">
-                        <span>Overall Progress</span>
-                        <span id="watchCyclePct">0%</span>
-                    </div>
-                    <div class="cycle-prog-track">
-                        <div class="cycle-prog-fill" id="watchCycleProg"></div>
-                    </div>
-                    <div style="margin-top:0.5rem;font-size:0.72rem;color:var(--muted);" id="watchSubStatus">
-                        Initialising…</div>
-                </div>
-            </div>
-
-            <!-- 2×2 video grid -->
-            <div class="watch-grid" id="watchGrid"></div>
         </div>
 
-    </div><!-- /panelWatch -->
-
-    </div><!-- /main-card -->
+        <!-- Results -->
+        <div id="fetchResultsWrap" style="display:none;">
+            <div class="results-hdr">
+                <span class="results-title" id="fetchResultsTitle">Results</span>
+                <button class="btn-copy-all" id="fetchCopyAll" onclick="copyAll()" disabled>Copy All</button>
+            </div>
+            <div class="result-box" id="fetchBox">
+                <div class="empty-state">Waiting for results…</div>
+            </div>
+        </div>
+    </div>
 
     <!-- TOAST -->
     <div id="toast"></div>
 
+    <!-- FOOTER -->
+    <footer>
+        Built with ♥ &middot; <a href="https://fetch-links.pages.dev" target="_blank" rel="noopener">fetch-links.pages.dev</a>
+    </footer>
+
     <script>
-        // ═══════════════════════════════════════════════════════════════════════
-        //  CONFIGURATION - Render Backend URL
-        // ═══════════════════════════════════════════════════════════════════════
-        const API_BASE = "https://fetch-links.onrender.com";
+        const API_BASE = "https://bestfriend33-fetch-links-backend.hf.space";
 
-        // ═══════════════════════════════════════════════════
-        //  TAB SWITCHING
-        // ═══════════════════════════════════════════════════
-        function switchTab(tab) {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-            document.getElementById('tab' + cap(tab)).classList.add('active');
-            document.getElementById('panel' + cap(tab)).classList.add('active');
-        }
-        function cap(s) { if (s === 'gd') return 'Gd'; if (s === 'watch') return 'Watch'; return s.charAt(0).toUpperCase() + s.slice(1); }
-
-        // ═══════════════════════════════════════════════════
-        //  SHARED HELPERS
-        // ═══════════════════════════════════════════════════
         let toastTimer = null;
         function showToast(msg) {
             const t = document.getElementById('toast');
             t.textContent = msg; t.classList.add('show');
             clearTimeout(toastTimer);
-            toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+            toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
         }
 
         function copyOne(link, btn) {
             navigator.clipboard.writeText(link).then(() => {
-                btn.textContent = 'Copied!'; btn.classList.add('copied');
-                setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+                btn.textContent = 'Copied'; btn.classList.add('copied');
+                setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1600);
             }).catch(() => showToast('Copy failed'));
+        }
+
+        function statusLabel(s) {
+            if (s === 'fetching' || s === 'resolving') return 'Processing';
+            if (s === 'done') return 'Done';
+            if (s === 'failed') return 'Failed';
+            if (s === 'waiting') return 'Queued';
+            return s;
         }
 
         function buildRow(badgeText, status, link, errMsg) {
             const row = document.createElement('div');
-            row.className = `ri ${status}`;
+            row.className = 'ri ' + status;
 
             const badge = document.createElement('span');
             badge.className = 'ri-badge'; badge.textContent = badgeText;
@@ -1149,8 +649,7 @@
             cell.className = 'ri-link-cell';
 
             const st = document.createElement('span');
-            st.className = `ri-status ${status}`;
-            st.textContent = statusLabel(status);
+            st.className = 'ri-status ' + status; st.textContent = statusLabel(status);
 
             const cpBtn = document.createElement('button');
             cpBtn.className = 'btn-copy-one'; cpBtn.textContent = 'Copy';
@@ -1173,8 +672,8 @@
         }
 
         function updateRow(row, cell, st, cpBtn, status, link, errMsg) {
-            row.className = `ri ${status}`;
-            st.className = `ri-status ${status}`; st.textContent = statusLabel(status);
+            row.className = 'ri ' + status;
+            st.className = 'ri-status ' + status; st.textContent = statusLabel(status);
             cell.innerHTML = '';
             if (link) {
                 const a = document.createElement('a');
@@ -1192,83 +691,119 @@
             }
         }
 
-        function statusLabel(s) {
-            if (s === 'fetching' || s === 'resolving') return '⟳ Processing';
-            if (s === 'done') return 'Done ✅';
-            if (s === 'failed') return 'Failed ❌';
-            if (s === 'waiting') return '· Queued';
-            return s;
-        }
-
-        function copyAll(which) {
-            const links = which === 'fetch' ? fetchLinks : gdLinks;
-            if (!links.length) return;
-            navigator.clipboard.writeText(links.join('\n')).then(() => {
-                showToast(`✓ Copied ${links.length} link${links.length > 1 ? 's' : ''}`);
-            }).catch(() => showToast('Copy failed'));
-        }
-
-        // ═══════════════════════════════════════════════════
-        //  TAB 1 — LINK FETCHER
-        // ═══════════════════════════════════════════════════
+        // ── STATE ──
         let fetchES = null, isFetching = false;
-        let fetchLinks = [], fetchMap = {}, fetchTotal = 0, fetchDone = 0;
+        let fetchLinks = [], fetchMap = {}, fetchTotal = 0;
+        let fetchRetryCount = 0;
+        const MAX_FETCH_RETRIES = 3;
 
         function startFetching() {
             if (isFetching) return;
             const urls = document.getElementById('urlInput').value.trim().split('\n').map(u => u.trim()).filter(Boolean).slice(0, 10);
-            if (!urls.length) { showToast('Paste at least one FXLinks URL'); return; }
+            if (!urls.length) { showToast('Paste at least one URL'); return; }
 
             resetFetchResults(); isFetching = true;
-            setBtn('fetchBtn', 'fetchBtnText', 'fetchSpinner', true, 'FETCHING…');
-            showSB('fetchSB'); setSBText('fetchStatus', 'Connecting…');
+            fetchRetryCount = 0;
+            setBtn(true, 'Fetching…');
+            showSB(); setSBText('Connecting…');
             document.getElementById('fetchResultsWrap').style.display = 'block';
 
-            fetchES = new EventSource(API_BASE + '/api/fetch?urls=' + encodeURIComponent(urls.join(',')));
-            fetchES.onmessage = e => { try { handleFetchEvent(JSON.parse(e.data)); } catch { } };
-            fetchES.onerror = () => { if (isFetching) { setSBText('fetchStatus', 'Connection lost'); stopFetch(); } };
+            connectFetch(urls);
         }
 
-        function handleFetchEvent(d) {
-            if (d.type === 'status') { setSBText('fetchStatus', d.message); }
+        function connectFetch(urls) {
+            if (fetchES) { fetchES.close(); fetchES = null; }
+            fetchES = new EventSource(API_BASE + '/api/fetch?urls=' + encodeURIComponent(urls.join(',')));
+
+            let connected = false;
+            let errorCount = 0;
+
+            fetchES.onopen = () => {
+                console.log('[SSE] Connection opened');
+            };
+
+            fetchES.onmessage = e => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.type === 'connected') {
+                        connected = true;
+                        setSBText('Connected — scanning…');
+                    }
+                    handleEvent(data);
+                } catch (err) {
+                    console.error('[SSE] Parse error:', err);
+                }
+            };
+
+            fetchES.onerror = () => {
+                errorCount++;
+                console.log('[SSE] Error event #' + errorCount + ', connected=' + connected + ', readyState=' + fetchES.readyState);
+
+                if (fetchES.readyState === EventSource.CLOSED) {
+                    // Connection was closed permanently
+                    if (connected) {
+                        // Was connected but lost — likely done or server ended it
+                        if (isFetching) {
+                            setSBText('Connection closed by server');
+                            stopFetch();
+                        }
+                    } else {
+                        // Never connected — retry
+                        if (fetchRetryCount < MAX_FETCH_RETRIES) {
+                            fetchRetryCount++;
+                            setSBText('Connection failed, retrying (' + fetchRetryCount + '/' + MAX_FETCH_RETRIES + ')…');
+                            console.log('[SSE] Retrying in 2s…');
+                            setTimeout(() => { if (isFetching) connectFetch(urls); }, 2000);
+                        } else {
+                            setSBText('Connection failed after ' + MAX_FETCH_RETRIES + ' retries');
+                            stopFetch();
+                        }
+                    }
+                }
+                // readyState === CONNECTING means EventSource is auto-reconnecting — do nothing
+            };
+        }
+
+        function handleEvent(d) {
+            if (d.type === 'connected') { setSBText('Connected — scanning…'); return; }
+            if (d.type === 'status') { setSBText(d.message); }
             if (d.type === 'warning') { showToast('⚠ ' + d.message); }
             if (d.type === 'episodes_found') {
-                fetchTotal = d.count; fetchDone = 0;
+                fetchTotal = d.count;
                 document.querySelector('#fetchBox .empty-state')?.remove();
-                d.episodes.forEach(ep => addFetchRow(ep, 'waiting', null, null));
-                setProg('fetchProg', 0, fetchTotal);
-                setSBText('fetchStatus', `Found ${fetchTotal} episode${fetchTotal > 1 ? 's' : ''}. Extracting links…`);
+                d.episodes.forEach(ep => addRow(ep, 'waiting', null, null));
+                setProg(0, fetchTotal);
+                setSBText('Found ' + fetchTotal + ' episode' + (fetchTotal > 1 ? 's' : '') + '. Extracting links…');
             }
             if (d.type === 'progress') {
                 const r = fetchMap[d.episode];
                 if (r) updateRow(r.row, r.cell, r.st, r.cpBtn, 'fetching', null, null);
-                else addFetchRow(d.episode, 'fetching', null, null);
+                else addRow(d.episode, 'fetching', null, null);
             }
             if (d.type === 'result') {
-                fetchDone = d.processed;
-                setProg('fetchProg', d.processed, d.total);
-                setSBText('fetchStatus', `Processing ${d.processed} of ${d.total}…`);
+                setProg(d.processed, d.total);
+                setSBText('Processing ' + d.processed + ' of ' + d.total + '…');
                 if (d.status === 'done') {
                     const r = fetchMap[d.episode];
                     if (r) updateRow(r.row, r.cell, r.st, r.cpBtn, 'done', d.link, null);
-                    else addFetchRow(d.episode, 'done', d.link, null);
+                    else addRow(d.episode, 'done', d.link, null);
                     fetchLinks.push(d.link);
                     document.getElementById('fetchCopyAll').disabled = false;
                 } else {
                     const r = fetchMap[d.episode];
                     if (r) updateRow(r.row, r.cell, r.st, r.cpBtn, 'failed', null, d.error);
-                    else addFetchRow(d.episode, 'failed', null, d.error);
+                    else addRow(d.episode, 'failed', null, d.error);
                 }
             }
             if (d.type === 'done') {
-                setSBText('fetchStatus', `Done — ${fetchLinks.length} link${fetchLinks.length !== 1 ? 's' : ''} extracted`);
-                setProg('fetchProg', fetchTotal, fetchTotal);
+                setSBText('Done — ' + fetchLinks.length + ' link' + (fetchLinks.length !== 1 ? 's' : '') + ' extracted');
+                setProg(fetchTotal, fetchTotal);
                 stopFetch();
             }
-            if (d.type === 'error') { setSBText('fetchStatus', '❌ ' + d.message); stopFetch(); }
+            if (d.type === 'error') { setSBText('❌ ' + d.message); stopFetch(); }
         }
 
-        function addFetchRow(ep, status, link, err) {
+        function addRow(ep, status, link, err) {
             const box = document.getElementById('fetchBox');
             if (fetchMap[ep]) { updateRow(fetchMap[ep].row, fetchMap[ep].cell, fetchMap[ep].st, fetchMap[ep].cpBtn, status, link, err); return; }
             const r = buildRow(ep, status, link, err);
@@ -1278,7 +813,7 @@
 
         function stopFetch() {
             isFetching = false;
-            setBtn('fetchBtn', 'fetchBtnText', 'fetchSpinner', false, '⚡ START FETCHING');
+            setBtn(false, 'Start Fetching');
             if (fetchES) { fetchES.close(); fetchES = null; }
         }
 
@@ -1288,300 +823,39 @@
             document.getElementById('urlInput').value = '';
             resetFetchResults();
             document.getElementById('fetchResultsWrap').style.display = 'none';
-            hideSB('fetchSB');
+            hideSB();
             showToast('Cleared');
         }
 
         function resetFetchResults() {
-            fetchLinks = []; fetchMap = {}; fetchTotal = 0; fetchDone = 0;
+            fetchLinks = []; fetchMap = {}; fetchTotal = 0;
             document.getElementById('fetchBox').innerHTML = '<div class="empty-state">Waiting for results…</div>';
             document.getElementById('fetchCopyAll').disabled = true;
-            setProg('fetchProg', 0, 1);
+            setProg(0, 1);
         }
 
-        // ═══════════════════════════════════════════════════
-        //  TAB 2 — GD DIRECT LINK GENERATOR
-        // ═══════════════════════════════════════════════════
-        let gdES = null, isGd = false;
-        let gdLinks = [], gdRows = [], gdTotal = 0, gdDone = 0;
-
-        function startGdirect() {
-            if (isGd) return;
-            const urls = document.getElementById('gdInput').value.trim().split('\n').map(u => u.trim()).filter(Boolean).slice(0, 20);
-            if (!urls.length) { showToast('Paste at least one Google Drive URL'); return; }
-
-            resetGdResults(); isGd = true;
-            setBtn('gdBtn', 'gdBtnText', 'gdSpinner', true, 'RESOLVING…');
-            showSB('gdSB'); setSBText('gdStatus', 'Connecting…');
-            document.getElementById('gdResultsWrap').style.display = 'block';
-
-            // Pre-create all rows in queued state
-            document.querySelector('#gdBox .empty-state')?.remove();
-            urls.forEach((url, i) => {
-                const label = 'Link ' + (i + 1);
-                const r = buildRow(label, 'waiting', null, null);
-                document.getElementById('gdBox').appendChild(r.row);
-                gdRows[i] = r;
-            });
-            gdTotal = urls.length;
-            setProg('gdProg', 0, gdTotal);
-            setSBText('gdStatus', `Resolving ${gdTotal} URL${gdTotal > 1 ? 's' : ''}…`);
-
-            gdES = new EventSource(API_BASE + '/api/gdirect?urls=' + encodeURIComponent(urls.join(',')));
-            gdES.onmessage = e => { try { handleGdEvent(JSON.parse(e.data)); } catch { } };
-            gdES.onerror = () => { if (isGd) { setSBText('gdStatus', 'Connection lost'); stopGd(); } };
+        function copyAll() {
+            if (!fetchLinks.length) return;
+            navigator.clipboard.writeText(fetchLinks.join('\n')).then(() => {
+                showToast('✓ Copied ' + fetchLinks.length + ' link' + (fetchLinks.length > 1 ? 's' : ''));
+            }).catch(() => showToast('Copy failed'));
         }
 
-        function handleGdEvent(d) {
-            if (d.type === 'total') { gdTotal = d.count; }
-            if (d.type === 'progress') {
-                const r = gdRows[d.index];
-                if (r) updateRow(r.row, r.cell, r.st, r.cpBtn, 'resolving', null, null);
-                setSBText('gdStatus', `Resolving ${d.processed + 1} of ${d.total}…`);
-            }
-            if (d.type === 'result') {
-                gdDone = d.processed;
-                setProg('gdProg', d.processed, d.total);
-                setSBText('gdStatus', `Resolving ${d.processed} of ${d.total}…`);
-                const r = gdRows[d.index];
-                if (d.status === 'done') {
-                    if (r) updateRow(r.row, r.cell, r.st, r.cpBtn, 'done', d.link, null);
-                    gdLinks.push(d.link);
-                    document.getElementById('gdCopyAll').disabled = false;
-                } else {
-                    if (r) updateRow(r.row, r.cell, r.st, r.cpBtn, 'failed', null, d.error);
-                }
-            }
-            if (d.type === 'done') {
-                setSBText('gdStatus', `Done — ${gdLinks.length} direct link${gdLinks.length !== 1 ? 's' : ''} generated`);
-                setProg('gdProg', gdTotal, gdTotal);
-                stopGd();
-            }
-            if (d.type === 'error') { setSBText('gdStatus', '❌ ' + d.message); stopGd(); }
-        }
-
-        function stopGd() {
-            isGd = false;
-            setBtn('gdBtn', 'gdBtnText', 'gdSpinner', false, '🔓 GENERATE DIRECT LINKS');
-            if (gdES) { gdES.close(); gdES = null; }
-        }
-
-        function clearGd() {
-            stopGd();
-            fetch(API_BASE + '/api/clear', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => { });
-            document.getElementById('gdInput').value = '';
-            resetGdResults();
-            document.getElementById('gdResultsWrap').style.display = 'none';
-            hideSB('gdSB');
-            showToast('Cleared');
-        }
-
-        function resetGdResults() {
-            gdLinks = []; gdRows = []; gdTotal = 0; gdDone = 0;
-            document.getElementById('gdBox').innerHTML = '<div class="empty-state">Waiting for results…</div>';
-            document.getElementById('gdCopyAll').disabled = true;
-            setProg('gdProg', 0, 1);
-        }
-
-        // ═══════════════════════════════════════════════════
-        //  SHARED UI UTILITIES
-        // ═══════════════════════════════════════════════════
-        function setBtn(btnId, txtId, spinnerId, disabled, label) {
-            const btn = document.getElementById(btnId);
+        // ── UI HELPERS ──
+        function setBtn(disabled, label) {
+            const btn = document.getElementById('fetchBtn');
             btn.disabled = disabled;
             if (disabled) btn.classList.add('fetching'); else btn.classList.remove('fetching');
-            document.getElementById(txtId).textContent = label;
+            document.getElementById('fetchBtnText').textContent = label;
         }
-        function showSB(id) { document.getElementById(id).classList.add('visible'); }
-        function hideSB(id) { document.getElementById(id).classList.remove('visible'); }
-        function setSBText(id, msg) { document.getElementById(id).textContent = msg; }
-        function setProg(id, done, total) {
+
+        function showSB() { document.getElementById('fetchSB').classList.add('visible'); }
+        function hideSB() { document.getElementById('fetchSB').classList.remove('visible'); }
+        function setSBText(msg) { document.getElementById('fetchStatus').textContent = msg; }
+        function setProg(done, total) {
             const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-            document.getElementById(id).style.width = pct + '%';
+            document.getElementById('fetchProg').style.width = pct + '%';
         }
-
-        // =======================================================
-        //  TAB 3 — WATCHING YOU  (real backend playback via SSE)
-        // =======================================================
-        const WATCH_CYCLES = 10;
-        const WATCH_DURATION = 15;
-        const CIRCUMFERENCE = 2 * Math.PI * 40; // r=40 → ~251.2
-
-        let wRunning = false, wES = null, wCycle = 0, wCountdown = WATCH_DURATION;
-
-        // ▶ preview button — open in new tab
-        function previewWatch(n) {
-            const url = document.getElementById('wUrl' + n).value.trim();
-            if (!url) { showToast('Enter a URL first'); return; }
-            window.open(url, '_blank', 'noopener');
-        }
-
-        function startWatching() {
-            if (wRunning) return;
-            const urls = [1, 2, 3, 4].map(i => document.getElementById('wUrl' + i).value.trim()).filter(Boolean);
-            if (!urls.length) { showToast('Add at least one video URL'); return; }
-
-            wRunning = true; wCycle = 0; wCountdown = WATCH_DURATION;
-            setBtn('watchBtn', 'watchBtnText', 'watchSpinner', true, 'WATCHING…');
-            document.getElementById('watchStatusPanel').classList.add('visible');
-            document.getElementById('watchStateBadge').className = 'watch-state-badge playing';
-            document.getElementById('watchStateBadge').textContent = '● OPENING BROWSER…';
-            document.getElementById('watchSubStatus').textContent = 'Launching real browser windows…';
-            resetWatchUI();
-
-            // Render status cards (one per URL)
-            renderStatusCards(urls);
-
-            // Connect SSE to backend
-            wES = new EventSource(API_BASE + '/api/watch?urls=' + encodeURIComponent(urls.join(',')));
-            wES.onmessage = e => { try { handleWatchEvent(JSON.parse(e.data), urls); } catch { } };
-            wES.onerror = () => { if (wRunning) { document.getElementById('watchSubStatus').textContent = 'Connection lost'; stopWatching(false); } };
-        }
-
-        function handleWatchEvent(d, urls) {
-            switch (d.type) {
-                case 'start':
-                    document.getElementById('watchSubStatus').textContent =
-                        `Browser opened — ${d.urlCount} video(s), ${d.total} cycles × ${d.duration}s`;
-                    break;
-
-                case 'cycle_start':
-                    wCycle = d.cycle; wCountdown = WATCH_DURATION;
-                    document.getElementById('watchCycleBadge').textContent = `CYCLE ${d.cycle} / ${d.total}`;
-                    document.getElementById('watchStateBadge').className = 'watch-state-badge playing';
-                    document.getElementById('watchStateBadge').textContent = '● PLAYING';
-                    document.getElementById('watchSubStatus').textContent = `Cycle ${d.cycle} of ${d.total} — real browser windows opened`;
-                    setAllCards('playing');
-                    break;
-
-                case 'page_opened':
-                    setCard(d.index, 'playing', d.url);
-                    break;
-
-                case 'page_error':
-                    setCard(d.index, 'error', d.url);
-                    break;
-
-                case 'countdown':
-                    wCountdown = d.seconds;
-                    updateWatchTimer(d.cycle, d.seconds);
-                    break;
-
-                case 'cycle_end':
-                    setAllCards('idle');
-                    document.getElementById('watchStateBadge').className = 'watch-state-badge paused';
-                    document.getElementById('watchStateBadge').textContent = d.cycle >= WATCH_CYCLES ? '■ COMPLETE' : '⏸ PAUSED';
-                    document.getElementById('watchSubStatus').textContent =
-                        d.cycle >= WATCH_CYCLES ? 'All cycles done!' : `Cycle ${d.cycle} done — next starting…`;
-                    break;
-
-                case 'done':
-                    finishWatching();
-                    break;
-
-                case 'error':
-                    document.getElementById('watchSubStatus').textContent = '❌ ' + d.message;
-                    showToast('Error: ' + d.message);
-                    stopWatching(false);
-                    break;
-            }
-        }
-
-        function updateWatchTimer(cycle, seconds) {
-            document.getElementById('countdownNum').textContent = seconds;
-            const offset = CIRCUMFERENCE * (1 - seconds / WATCH_DURATION);
-            document.getElementById('countdownArc').style.strokeDashoffset = offset;
-            const elapsed = (cycle - 1) * WATCH_DURATION + (WATCH_DURATION - seconds);
-            const pct = Math.min(100, Math.round((elapsed / (WATCH_CYCLES * WATCH_DURATION)) * 100));
-            document.getElementById('watchCycleProg').style.width = pct + '%';
-            document.getElementById('watchCyclePct').textContent = pct + '%';
-        }
-
-        // ── Status cards (replace fake video grid) ──────────────────────────────
-        function renderStatusCards(urls) {
-            const grid = document.getElementById('watchGrid');
-            grid.innerHTML = '';
-            for (let i = 0; i < 4; i++) {
-                const url = urls[i] || null;
-                const card = document.createElement('div');
-                card.className = 'watch-status-card' + (url ? '' : ' empty-slot');
-                card.id = 'wCard' + i;
-                if (!url) { card.textContent = 'No URL'; grid.appendChild(card); continue; }
-                card.innerHTML = `
-          <span class="wcard-num">Video ${i + 1}</span>
-          <span class="wcard-dot idle" id="wDot${i}">●</span>
-          <span class="wcard-label" id="wLbl${i}">Waiting…</span>
-          <span class="wcard-url" title="${url}">${truncUrl(url)}</span>`;
-                grid.appendChild(card);
-            }
-        }
-
-        function setCard(i, state, url) {
-            const dot = document.getElementById('wDot' + i);
-            const lbl = document.getElementById('wLbl' + i);
-            if (!dot || !lbl) return;
-            dot.className = 'wcard-dot ' + state;
-            lbl.textContent = state === 'playing' ? '▶ Playing' : state === 'error' ? '❌ Failed' : '● Idle';
-        }
-
-        function setAllCards(state) {
-            for (let i = 0; i < 4; i++) setCard(i, state, '');
-        }
-
-        function truncUrl(url) {
-            try {
-                const u = new URL(url);
-                const short = u.hostname + (u.pathname.length > 20 ? u.pathname.slice(0, 18) + '…' : u.pathname);
-                return short;
-            } catch { return url.slice(0, 40) + (url.length > 40 ? '…' : ''); }
-        }
-
-        // ── Finish / Stop / Clear ───────────────────────────────────────────────
-        function finishWatching() {
-            wRunning = false;
-            if (wES) { wES.close(); wES = null; }
-            setBtn('watchBtn', 'watchBtnText', 'watchSpinner', false, '👁 START WATCHING');
-            document.getElementById('watchStateBadge').className = 'watch-state-badge done';
-            document.getElementById('watchStateBadge').textContent = '✓ ALL DONE';
-            document.getElementById('watchCycleBadge').textContent = `CYCLE ${WATCH_CYCLES} / ${WATCH_CYCLES}`;
-            document.getElementById('watchCycleProg').style.width = '100%';
-            document.getElementById('watchCyclePct').textContent = '100%';
-            document.getElementById('countdownNum').textContent = '0';
-            document.getElementById('countdownArc').style.strokeDashoffset = CIRCUMFERENCE;
-            document.getElementById('watchSubStatus').textContent = `Completed all ${WATCH_CYCLES} cycles ✔`;
-            setAllCards('idle');
-            showToast('✓ All 10 cycles complete!');
-        }
-
-        function stopWatching(manual) {
-            wRunning = false;
-            if (wES) { wES.close(); wES = null; }
-            fetch(API_BASE + '/api/watch/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => { });
-            setBtn('watchBtn', 'watchBtnText', 'watchSpinner', false, '👁 START WATCHING');
-            document.getElementById('watchStateBadge').className = 'watch-state-badge paused';
-            document.getElementById('watchStateBadge').textContent = '■ STOPPED';
-            document.getElementById('watchSubStatus').textContent = 'Stopped.';
-            if (manual) showToast('Stopped — browser windows closed');
-        }
-
-        function clearWatch() {
-            stopWatching(false);
-            [1, 2, 3, 4].forEach(i => { document.getElementById('wUrl' + i).value = ''; });
-            document.getElementById('watchStatusPanel').classList.remove('visible');
-            document.getElementById('watchGrid').innerHTML = '';
-            resetWatchUI();
-            showToast('Cleared');
-        }
-
-        function resetWatchUI() {
-            document.getElementById('watchCycleBadge').textContent = 'CYCLE 0 / 10';
-            document.getElementById('watchCycleProg').style.width = '0%';
-            document.getElementById('watchCyclePct').textContent = '0%';
-            document.getElementById('countdownNum').textContent = '15';
-            document.getElementById('countdownArc').style.strokeDashoffset = 0;
-        }
-
-
     </script>
 
 </body>

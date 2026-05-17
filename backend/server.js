@@ -4,17 +4,21 @@ const express = require('express');
 const cors = require('cors');
 const { chromium } = require('playwright');
 const path = require('path');
-const { execSync } = require('child_process');
 const { v4: uuidv4 } = require('uuid');
 
 const app = express();
-const PORT = process.env.PORT || 10000;
+const PORT = parseInt(process.env.PORT, 10) || 7860;
+const MAX_CONCURRENCY = parseInt(process.env.MAX_CONCURRENCY, 10) || 3;
+const NAV_TIMEOUT = parseInt(process.env.NAVIGATION_TIMEOUT, 10) || 30000;
+const PAGE_WAIT = parseInt(process.env.PAGE_WAIT_AFTER_LOAD, 10) || 2000;
+const ENABLE_WATCH = process.env.ENABLE_WATCH_ENDPOINT !== '0';
 
-// Enable CORS for all origins (required for Cloudflare Pages frontend)
+// Accept all origins — frontend is on a different domain (Cloudflare Pages)
 app.use(cors({
-    origin: '*',
+    origin: true,
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: false
 }));
 
 // Handle preflight requests
@@ -69,7 +73,7 @@ let browserReady = false;
 
 async function getBrowser() {
     if (browser && browser.isConnected()) return browser;
-    browser = await chromium.launch({
+    const launchOpts = {
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -77,10 +81,15 @@ async function getBrowser() {
             '--disable-gpu',
             '--no-first-run',
             '--no-zygote',
-            '--single-process'
+            '--single-process',
+            '--disable-extensions',
+            '--disable-background-timer-throttling',
         ],
-        headless: true
-    });
+        headless: true,
+    };
+    const chromePath = process.env.CHROME_BIN || process.env.CHROME_PATH;
+    if (chromePath) launchOpts.executablePath = chromePath;
+    browser = await chromium.launch(launchOpts);
     browserReady = true;
     console.log('[Browser] Chromium launched');
     browser.on('disconnected', () => { browser = null; browserReady = false; });
@@ -98,7 +107,10 @@ async function attachRoutes(page, capturedUrls) {
 
             // ── Capture direct CDN/video URLs, then abort (saves bandwidth) ──
             if (isCdnUrl(url)) {
-                if (capturedUrls && !capturedUrls.includes(url)) capturedUrls.push(url);
+                if (capturedUrls && !capturedUrls.includes(url)) {
+                    capturedUrls.push(url);
+                    console.log('[Route] Captured CDN URL:', url.substring(0, 100) + (url.length > 100 ? '…' : ''));
+                }
                 await route.abort('blockedbyclient').catch(() => { });
                 return;
             }
@@ -161,14 +173,16 @@ async function destroySession(session) {
 
 // ─── STEP 1: Scrape FXLinks → collect Episode XX links ──────────────────
 async function step1_getEpisodes(session, url) {
+    console.log('[Step1] Navigating to FXLinks page:', url);
     const page = await createPage(session.context, null);
     session.pages.add(page);
     try {
         if (session.aborted) throw new Error('Aborted');
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
-        await page.waitForTimeout(2000);
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT });
+        console.log('[Step1] Page loaded, waiting', PAGE_WAIT, 'ms for JS to render…');
+        await page.waitForTimeout(PAGE_WAIT);
 
-        return await page.evaluate(() => {
+        const results = await page.evaluate(() => {
             const seen = new Set();
             const results = [];
             const re = /^episode\s+\d+/i;
@@ -186,6 +200,8 @@ async function step1_getEpisodes(session, url) {
             });
             return results;
         });
+        console.log('[Step1] Extracted', results.length, 'episode(s) from page');
+        return results;
     } finally {
         await closePage(page);
         session.pages.delete(page);
@@ -196,19 +212,16 @@ async function step1_getEpisodes(session, url) {
 async function step2and3(session, episodeHref) {
     if (session.aborted) throw new Error('Aborted');
 
-    // Shared array: route handler will push captured CDN URLs here
     const capturedUrls = [];
-
     const page = await createPage(session.context, capturedUrls);
     session.pages.add(page);
 
     try {
-        // ── STEP 2: GDFlix page ─────────────────────────────────────────
-        await page.goto(episodeHref, { waitUntil: 'domcontentloaded', timeout: 25000 });
-        await page.waitForTimeout(2500);
+        console.log('[Step2] Navigating to GDFlix page:', episodeHref);
+        await page.goto(episodeHref, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT });
+        await page.waitForTimeout(PAGE_WAIT);
         if (session.aborted) throw new Error('Aborted');
 
-        // Find INSTANT DL element — try anchor href first (most reliable)
         const instantInfo = await page.evaluate(() => {
             const re = /instant\s*d(own)?l(oad)?/i;
             for (const el of document.querySelectorAll('a, button')) {
@@ -222,17 +235,21 @@ async function step2and3(session, episodeHref) {
             return null;
         });
 
-        if (!instantInfo) throw new Error('INSTANT DL button not found');
+        if (!instantInfo) {
+            console.log('[Step2] INSTANT DL button NOT found');
+            throw new Error('INSTANT DL button not found');
+        }
+        console.log('[Step2] INSTANT DL found — type:', instantInfo.type, instantInfo.href ? 'href=' + instantInfo.href.substring(0, 80) : '');
 
         let finalPage = page;
         let popupOpened = false;
 
         if (instantInfo.type === 'anchor') {
-            // Direct navigation — cleanest path
-            await page.goto(instantInfo.href, { waitUntil: 'domcontentloaded', timeout: 25000 });
-            await page.waitForTimeout(2500);
+            console.log('[Step2] Following anchor to:', instantInfo.href.substring(0, 80));
+            await page.goto(instantInfo.href, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT });
+            await page.waitForTimeout(PAGE_WAIT);
         } else {
-            // Button click — could open popup or navigate same page
+            console.log('[Step2] Clicking INSTANT DL button, waiting for popup/navigation…');
             const popupPromise = page.waitForEvent('popup', { timeout: 7000 }).catch(() => null);
 
             await page.evaluate(() => {
@@ -245,29 +262,31 @@ async function step2and3(session, episodeHref) {
             });
 
             const [, popup] = await Promise.all([
-                page.waitForNavigation({ timeout: 8000, waitUntil: 'domcontentloaded' }).catch(() => null),
+                page.waitForNavigation({ timeout: NAV_TIMEOUT, waitUntil: 'domcontentloaded' }).catch(() => null),
                 popupPromise,
             ]);
 
             if (popup && !popup.isClosed()) {
-                // Attach our route handler to the popup page too
+                console.log('[Step2] Popup opened:', popup.url().substring(0, 80));
                 await attachRoutes(popup, capturedUrls);
                 session.pages.add(popup);
                 popupOpened = true;
                 popup.on('popup', async (p2) => { try { await p2.close(); } catch { } });
                 await popup.waitForLoadState('domcontentloaded', { timeout: 15000 }).catch(() => { });
-                await popup.waitForTimeout(2500);
+                await popup.waitForTimeout(PAGE_WAIT);
                 finalPage = popup;
             } else {
-                await page.waitForTimeout(2500);
+                console.log('[Step2] No popup — staying on same page');
+                await page.waitForTimeout(PAGE_WAIT);
                 finalPage = page;
             }
         }
 
         if (session.aborted) throw new Error('Aborted');
 
-        // ── STEP 3: Extract the DIRECT download URL ────────────────────
+        console.log('[Step3] Extracting direct link — captured CDN URLs so far:', capturedUrls.length);
         const link = await extractDirectLink(finalPage, capturedUrls);
+        console.log('[Step3] Direct link extracted:', link.substring(0, 100) + (link.length > 100 ? '…' : ''));
 
         if (popupOpened && finalPage !== page) {
             await closePage(finalPage);
@@ -286,30 +305,26 @@ async function step2and3(session, episodeHref) {
 async function extractDirectLink(page, capturedUrls = []) {
     if (!page || page.isClosed()) throw new Error('Page closed before extraction');
 
-    // Wait for JS to render the player/download box
+    console.log('[Extract] Waiting for networkidle…');
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => { });
     await page.waitForTimeout(1500);
 
     // ── Priority 1: captured CDN URLs from network interception ──────────
-    // These are the most accurate — we catch the exact URL the browser requests
     if (capturedUrls.length > 0) {
-        // Prefer video-downloads.googleusercontent.com
+        console.log('[Extract] Priority 1 — checking', capturedUrls.length, 'captured CDN URL(s)');
         const googleDl = capturedUrls.find(u => u.includes('video-downloads.googleusercontent'));
-        if (googleDl) return googleDl;
-        // Any googlevideo or googleapis direct link
+        if (googleDl) { console.log('[Extract] Found googleusercontent CDN URL'); return googleDl; }
         const gv = capturedUrls.find(u => u.includes('googlevideo.com') || u.includes('drive.usercontent.google'));
-        if (gv) return gv;
-        // Drive direct download
+        if (gv) { console.log('[Extract] Found googlevideo/usercontent CDN URL'); return gv; }
         const gd = capturedUrls.find(u => u.includes('drive.google.com/uc'));
-        if (gd) return gd;
-        // File extension match
+        if (gd) { console.log('[Extract] Found drive.google.com/uc URL'); return gd; }
         const fileUrl = capturedUrls.find(u => /\.(mp4|mkv|avi|mov|m4v|webm|zip|rar)/i.test(u));
-        if (fileUrl) return fileUrl;
-        // Return first captured
+        if (fileUrl) { console.log('[Extract] Found file-extension CDN URL'); return fileUrl; }
+        console.log('[Extract] Returning first captured URL');
         return capturedUrls[0];
     }
 
-    // ── Priority 2: DOM scraping ─────────────────────────────────────────
+    console.log('[Extract] Priority 1 empty — falling back to DOM scraping');
     const link = await page.evaluate(() => {
         function clean(href) {
             if (!href || typeof href !== 'string') return null;
@@ -404,24 +419,42 @@ app.get('/api/fetch', async (req, res) => {
     const urls = (req.query.urls || '').split(',').map(u => u.trim()).filter(Boolean).slice(0, 10);
     if (!urls.length) return res.status(400).json({ error: 'No URLs' });
 
+    console.log('[Fetch] ──────────────────────────────────────');
+    console.log('[Fetch] New request —', urls.length, 'URL(s):', urls.join(', '));
+
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.flushHeaders();
 
     let closed = false;
-    req.on('close', () => { closed = true; });
+    req.on('close', () => { closed = true; clearInterval(keepAlive); console.log('[Fetch] Client disconnected'); });
+
+    // Keep-alive ping every 15s to prevent Hugging Face proxy from killing the connection
+    const keepAlive = setInterval(() => {
+        if (!closed && !res.writableEnded) res.write(':ping\n\n');
+    }, 15000);
 
     const send = obj => { if (!closed && !res.writableEnded) res.write(`data: ${JSON.stringify(obj)}\n\n`); };
 
+    // Acknowledge connection immediately so frontend knows it's connected
+    send({ type: 'connected' });
+    console.log('[Fetch] SSE connection established, flushing headers');
+
     let session;
-    try { session = await createSession(); }
-    catch (err) { send({ type: 'error', message: 'Browser start failed: ' + err.message }); res.end(); return; }
+    try {
+        session = await createSession();
+        console.log('[Fetch] Session created:', session.id);
+    } catch (err) {
+        console.error('[Fetch] Browser start failed:', err.message);
+        send({ type: 'error', message: 'Browser start failed: ' + err.message }); res.end(); return;
+    }
 
     req.on('close', () => destroySession(session).catch(() => { }));
 
-    const enqueue = makeQueue(4);
+    const enqueue = makeQueue(MAX_CONCURRENCY);
     let total = 0, done = 0;
 
     try {
@@ -431,41 +464,64 @@ app.get('/api/fetch', async (req, res) => {
         for (let i = 0; i < urls.length; i++) {
             if (session.aborted || closed) break;
             try {
+                console.log('[Fetch] Scanning URL', i + 1, 'of', urls.length, '—', urls[i]);
                 send({ type: 'status', message: `Scanning URL ${i + 1} of ${urls.length}…` });
                 const eps = await step1_getEpisodes(session, urls[i]);
-                if (!eps.length) send({ type: 'warning', message: `No episodes found in URL ${i + 1}` });
+                console.log('[Fetch] URL', i + 1, '→ found', eps.length, 'episode(s)');
+                if (!eps.length) {
+                    console.log('[Fetch] WARNING: No episodes found in URL', i + 1);
+                    send({ type: 'warning', message: `No episodes found in URL ${i + 1}` });
+                }
                 allEps.push(...eps);
             } catch (err) {
-                if (!session.aborted) send({ type: 'warning', message: `URL ${i + 1} scan failed: ${err.message}` });
+                if (!session.aborted) {
+                    console.error('[Fetch] URL', i + 1, 'scan failed:', err.message);
+                    send({ type: 'warning', message: `URL ${i + 1} scan failed: ${err.message}` });
+                }
             }
         }
 
-        if (!allEps.length) { send({ type: 'done', total: 0 }); res.end(); await destroySession(session); return; }
+        console.log('[Fetch] Total episodes collected:', allEps.length);
+        allEps.forEach((ep, idx) => console.log(`  [${idx + 1}] ${ep.text} → ${ep.href}`));
+
+        if (!allEps.length) {
+            console.log('[Fetch] No episodes found — ending');
+            send({ type: 'done', total: 0 }); res.end(); await destroySession(session); return;
+        }
 
         total = allEps.length;
         send({ type: 'episodes_found', count: total, episodes: allEps.map(e => e.text) });
+        console.log('[Fetch] Sent episodes_found event — starting link extraction for', total, 'episode(s)');
 
         await Promise.allSettled(allEps.map(ep => enqueue(async () => {
             if (session.aborted || closed) {
                 done++;
+                console.log('[Fetch]', ep.text, '→ ABORTED');
                 send({ type: 'result', episode: ep.text, status: 'failed', error: 'Aborted', processed: done, total });
                 return;
             }
+            console.log('[Fetch]', ep.text, '→ STARTING extraction…');
             send({ type: 'progress', episode: ep.text, status: 'fetching', processed: done, total });
             try {
                 const link = await step2and3(session, ep.href);
                 done++;
+                console.log('[Fetch]', ep.text, '→ DONE —', link.substring(0, 100) + (link.length > 100 ? '…' : ''));
                 send({ type: 'result', episode: ep.text, status: 'done', link, processed: done, total });
             } catch (err) {
                 done++;
-                console.error(`[${ep.text}] ${err.message}`);
+                console.error('[Fetch]', ep.text, '→ FAILED:', err.message);
                 send({ type: 'result', episode: ep.text, status: 'failed', error: err.message, processed: done, total });
             }
         })));
+
+        console.log('[Fetch] All episodes processed —', done, '/', total);
     } catch (err) {
+        console.error('[Fetch] Unhandled error:', err.message);
         send({ type: 'error', message: err.message });
     } finally {
+        clearInterval(keepAlive);
         if (!closed) { send({ type: 'done', total }); res.end(); }
+        console.log('[Fetch] Session destroyed, response ended');
         await destroySession(session).catch(() => { });
     }
 });
@@ -477,26 +533,26 @@ app.get('/api/fetch', async (req, res) => {
 async function gdirectResolve(session, driveUrl) {
     if (session.aborted) throw new Error('Aborted');
 
-    // Normalise Google Drive share URLs → usercontent download URL
     let targetUrl = driveUrl.trim();
-    // Handles: drive.google.com/file/d/FILE_ID/view  →  drive.usercontent format
     const fileIdMatch = targetUrl.match(/\/d\/([a-zA-Z0-9_-]{20,})/);
     if (fileIdMatch) {
         targetUrl = `https://drive.usercontent.google.com/download?id=${fileIdMatch[1]}&export=download`;
+        console.log('[GDirect-Resolve] Converted file/d/ URL to usercontent format');
     }
-    // Handles: drive.google.com/open?id=FILE_ID
     const openIdMatch = targetUrl.match(/[?&]id=([a-zA-Z0-9_-]{20,})/);
     if (!fileIdMatch && openIdMatch) {
         targetUrl = `https://drive.usercontent.google.com/download?id=${openIdMatch[1]}&export=download`;
+        console.log('[GDirect-Resolve] Converted open?id= URL to usercontent format');
     }
+    console.log('[GDirect-Resolve] Navigating to:', targetUrl.substring(0, 100));
 
     const page = await createPage(session.context, null);
     session.pages.add(page);
     try {
         await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
         await page.waitForTimeout(2000);
+        console.log('[GDirect-Resolve] Page loaded, scanning for "Download anyway" link…');
 
-        // Check if we're on the virus-warning page ("Download anyway" link present)
         const directUrl = await page.evaluate((originalUrl) => {
             // Look for "Download anyway" anchor — its href IS the direct URL
             const re = /download\s*any\s*way/i;
@@ -523,10 +579,14 @@ async function gdirectResolve(session, driveUrl) {
             return null;
         }, targetUrl);
 
-        if (directUrl) return directUrl;
+        if (directUrl) {
+            console.log('[GDirect-Resolve] Found "Download anyway" direct URL');
+            return directUrl;
+        }
 
         // If no warning page detected, the targetUrl IS the direct link
         // (small files bypass the warning and start downloading directly)
+        console.log('[GDirect-Resolve] No warning page — returning targetUrl as direct link');
         return targetUrl;
     } finally {
         await closePage(page);
@@ -539,22 +599,32 @@ app.get('/api/gdirect', async (req, res) => {
     const urls = (req.query.urls || '').split(',').map(u => u.trim()).filter(Boolean).slice(0, 20);
     if (!urls.length) return res.status(400).json({ error: 'No URLs' });
 
+    console.log('[GDirect] ──────────────────────────────────────');
+    console.log('[GDirect] New request —', urls.length, 'URL(s)');
+
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.flushHeaders();
 
     let closed = false;
-    req.on('close', () => { closed = true; });
+    req.on('close', () => { closed = true; clearInterval(keepAlive); console.log('[GDirect] Client disconnected'); });
+
+    // Keep-alive ping every 15s to prevent Hugging Face proxy from killing the connection
+    const keepAlive = setInterval(() => {
+        if (!closed && !res.writableEnded) res.write(':ping\n\n');
+    }, 15000);
+
     const send = obj => { if (!closed && !res.writableEnded) res.write(`data: ${JSON.stringify(obj)}\n\n`); };
 
     let session;
-    try { session = await createSession(); }
-    catch (err) { send({ type: 'error', message: 'Browser start failed: ' + err.message }); res.end(); return; }
+    try { session = await createSession(); console.log('[GDirect] Session created:', session.id); }
+    catch (err) { console.error('[GDirect] Browser start failed:', err.message); send({ type: 'error', message: 'Browser start failed: ' + err.message }); res.end(); return; }
     req.on('close', () => destroySession(session).catch(() => { }));
 
-    const enqueue = makeQueue(4);
+    const enqueue = makeQueue(MAX_CONCURRENCY);
     let total = urls.length, done = 0;
 
     send({ type: 'total', count: total });
@@ -563,24 +633,30 @@ app.get('/api/gdirect', async (req, res) => {
         await Promise.allSettled(urls.map((url, i) => enqueue(async () => {
             if (session.aborted || closed) {
                 done++;
+                console.log('[GDirect]', i + 1, '→ ABORTED');
                 send({ type: 'result', index: i, originalUrl: url, status: 'failed', error: 'Aborted', processed: done, total });
                 return;
             }
+            console.log('[GDirect]', i + 1, '→ Resolving:', url.substring(0, 80));
             send({ type: 'progress', index: i, originalUrl: url, status: 'resolving', processed: done, total });
             try {
                 const link = await gdirectResolve(session, url);
                 done++;
+                console.log('[GDirect]', i + 1, '→ DONE:', link.substring(0, 100) + (link.length > 100 ? '…' : ''));
                 send({ type: 'result', index: i, originalUrl: url, status: 'done', link, processed: done, total });
             } catch (err) {
                 done++;
-                console.error(`[GDirect ${i + 1}] ${err.message}`);
+                console.error('[GDirect]', i + 1, '→ FAILED:', err.message);
                 send({ type: 'result', index: i, originalUrl: url, status: 'failed', error: err.message, processed: done, total });
             }
         })));
+        console.log('[GDirect] All URLs processed —', done, '/', total);
     } catch (err) {
+        console.error('[GDirect] Unhandled error:', err.message);
         send({ type: 'error', message: err.message });
     } finally {
         if (!closed) { send({ type: 'done', total }); res.end(); }
+        console.log('[GDirect] Session destroyed, response ended');
         await destroySession(session).catch(() => { });
     }
 });
@@ -593,23 +669,25 @@ app.get('/api/gdirect', async (req, res) => {
 let watchAbortFlag = false;
 let watchBrowserInstance = null;
 
-async function getWatchBrowser() {
-    if (watchBrowserInstance && watchBrowserInstance.isConnected()) return watchBrowserInstance;
-    watchBrowserInstance = await chromium.launch({
-        headless: false,
-        args: [
-            '--no-sandbox', '--disable-setuid-sandbox',
-            '--autoplay-policy=no-user-gesture-required',
-            '--disable-features=PreloadMediaEngagementData,MediaEngagementBypassAutoplayPolicies',
-            '--no-first-run', '--disable-background-networking',
-            '--no-zygote', '--single-process'
-        ],
-    });
-    watchBrowserInstance.on('disconnected', () => { watchBrowserInstance = null; });
-    return watchBrowserInstance;
-}
+// ─── /api/watch/stop ──────────────────────────────────────────────────────────
+app.post('/api/watch/stop', async (_req, res) => {
+    watchAbortFlag = true;
+    if (watchBrowserInstance) {
+        await watchBrowserInstance.close().catch(() => { });
+        watchBrowserInstance = null;
+    }
+    res.json({ status: 'stopped' });
+});
 
 app.get('/api/watch', async (req, res) => {
+    if (!ENABLE_WATCH) {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.flushHeaders();
+        res.write(`data: ${JSON.stringify({ type: 'error', message: 'Watch endpoint disabled on this deployment' })}\n\n`);
+        res.end();
+        return;
+    }
+
     const urls = (req.query.urls || '').split(',').map(u => u.trim()).filter(Boolean).slice(0, 4);
     if (!urls.length) return res.status(400).json({ error: 'No URLs' });
 
@@ -628,7 +706,26 @@ app.get('/api/watch', async (req, res) => {
     watchAbortFlag = false;
 
     try {
-        wb = await getWatchBrowser();
+        // Force headless:true for server deployments (no display available)
+        if (watchBrowserInstance && watchBrowserInstance.isConnected()) {
+            wb = watchBrowserInstance;
+        } else {
+            const launchOpts = {
+                headless: true,
+                args: [
+                    '--no-sandbox', '--disable-setuid-sandbox',
+                    '--autoplay-policy=no-user-gesture-required',
+                    '--disable-features=PreloadMediaEngagementData,MediaEngagementBypassAutoplayPolicies',
+                    '--no-first-run', '--disable-background-networking',
+                    '--no-zygote', '--single-process',
+                ],
+            };
+            const chromePath = process.env.CHROME_BIN || process.env.CHROME_PATH;
+            if (chromePath) launchOpts.executablePath = chromePath;
+            wb = await chromium.launch(launchOpts);
+            watchBrowserInstance = wb;
+            wb.on('disconnected', () => { watchBrowserInstance = null; });
+        }
         ctx = await wb.newContext({
             userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
             viewport: null,  // use window size
@@ -712,6 +809,12 @@ app.post('/api/watch/stop', async (_req, res) => {
     res.json({ status: 'stopped' });
 });
 
+// ─── REQUEST LOGGER ───────────────────────────────────────────────────────
+app.use((req, res, next) => {
+    console.log('[HTTP]', req.method, req.url);
+    next();
+});
+
 // ─── /api/clear ───────────────────────────────────────────────────────────
 
 app.post('/api/clear', async (_req, res) => {
@@ -732,40 +835,58 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok' });
 });
 
-// ─── AUTO-FREE PORT & START ───────────────────────────────────────────────
-async function freePort(port) {
-    try {
-        const out = execSync(
-            `netstat -ano | findstr :${port} | findstr LISTENING`,
-            { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
-        );
-        const pid = out.trim().split(/\s+/).pop();
-        if (pid && !isNaN(pid)) {
-            execSync(`taskkill /PID ${pid} /F`, { stdio: 'ignore' });
-            console.log(`[Port] Freed port ${port} (killed PID ${pid})`);
-            await new Promise(r => setTimeout(r, 800));
-        }
-    } catch { /* port was free */ }
-}
-
+// ─── START ────────────────────────────────────────────────────────────────
 async function start() {
-    await freePort(PORT);
+    console.log('');
+    console.log('═══════════════════════════════════════════');
+    console.log('  LINK FETCHER — Starting up');
+    console.log('═══════════════════════════════════════════');
+    console.log('[Config] PORT:', PORT);
+    console.log('[Config] MAX_CONCURRENCY:', MAX_CONCURRENCY);
+    console.log('[Config] NAV_TIMEOUT:', NAV_TIMEOUT, 'ms');
+    console.log('[Config] PAGE_WAIT:', PAGE_WAIT, 'ms');
+    console.log('[Config] ENABLE_WATCH:', ENABLE_WATCH);
+    console.log('');
     await getBrowser();
-    // Render requires binding to 0.0.0.0
-    const server = app.listen(PORT, "0.0.0.0", () =>
-        console.log(`\n🔗 LINK FETCHER → http://0.0.0.0:${PORT}\n`)
+    console.log('[Server] Listening on 0.0.0.0:' + PORT);
+    console.log('[Server] Ready to accept requests');
+    console.log('');
+    // Hugging Face Spaces and most cloud platforms require binding to 0.0.0.0
+    const server = app.listen(PORT, '0.0.0.0', () =>
+        console.log(`🔗 LINK FETCHER → http://0.0.0.0:${PORT}`)
     );
-    server.on('error', async (err) => {
+    server.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
-            console.log(`[Port] ${PORT} still in use — retrying once…`);
-            await freePort(PORT);
-            setTimeout(() => server.listen(PORT, "0.0.0.0"), 1000);
+            console.log(`[Port] ${PORT} in use — trying ${PORT + 1}…`);
+            setTimeout(() => {
+                server.close();
+                app.listen(PORT + 1, '0.0.0.0', () =>
+                    console.log(`\n🔗 LINK FETCHER → http://0.0.0.0:${PORT + 1}\n`)
+                );
+            }, 1000);
         } else {
             console.error(err);
             process.exit(1);
         }
     });
 }
+
+// ─── GLOBAL ERROR HANDLERS ────────────────────────────────────────────────
+process.on('uncaughtException', (err) => {
+    console.error('[uncaughtException]', err.message);
+});
+
+process.on('unhandledRejection', (reason) => {
+    console.error('[unhandledRejection]', reason && reason.message ? reason.message : reason);
+});
+
+process.on('SIGTERM', async () => {
+    console.log('\nSIGTERM — Shutting down…');
+    for (const s of sessions.values()) await destroySession(s).catch(() => { });
+    if (browser) await browser.close().catch(() => { });
+    if (watchBrowserInstance) await watchBrowserInstance.close().catch(() => { });
+    process.exit(0);
+});
 
 process.on('SIGINT', async () => {
     console.log('\nShutting down…');

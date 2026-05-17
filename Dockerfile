@@ -39,8 +39,9 @@ RUN npx playwright install chromium
 COPY backend/ .
 
 ENV NODE_OPTIONS="--max-old-space-size=512"
+ENV PORT=7860
 
-EXPOSE 10000
+EXPOSE 7860
 
 CMD ["node", "server.js"]
 
