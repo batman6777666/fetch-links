@@ -838,6 +838,8 @@ app.get('/health', (req, res) => {
 });
 
 // ─── START ────────────────────────────────────────────────────────────────
+let serverInstance = null;
+
 async function start() {
     console.log('');
     console.log('═══════════════════════════════════════════');
@@ -851,23 +853,22 @@ async function start() {
     console.log('');
 
     // Start the HTTP server first — always listening, even if browser fails
-    const server = app.listen(PORT, '0.0.0.0', () => {
+    serverInstance = app.listen(PORT, '0.0.0.0', () => {
         console.log('[Server] Listening on 0.0.0.0:' + PORT);
         console.log('[Server] Ready to accept requests');
         console.log('');
     });
 
     // Server error handler — NEVER exit, always retry
-    server.on('error', (err) => {
+    serverInstance.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
             console.log('[Server] Port', PORT, 'in use — retrying in 3s…');
             setTimeout(() => {
-                server.close();
-                server.listen(PORT, '0.0.0.0');
+                serverInstance.close();
+                serverInstance = app.listen(PORT, '0.0.0.0');
             }, 3000);
         } else {
             console.error('[Server] Error:', err.message);
-            // Do NOT exit — let the server keep running
         }
     });
 
@@ -880,15 +881,14 @@ async function start() {
         console.log('[Server] Server will keep running — browser will auto-retry on next request');
     }
 
-    // ── KEEP-ALIVE: prevent Hugging Face idle timeout ──
-    // Ping our own health endpoint every 60s to keep the Space awake
+    // ── KEEP-ALIVE: prevent Hugging Face from marking Space as idle ──
+    // HF's proxy tracks incoming requests. Self-pinging keeps the Space "active".
+    const http = require('http');
     setInterval(() => {
-        const http = require('http');
-        http.get(`http://localhost:${PORT}/health`, (res) => {
-            res.resume();
-            res.on('end', () => { /* keep-alive ping succeeded */ });
-        }).on('error', () => { /* ignore — server might be restarting */ });
-    }, 60000);
+        http.get(`http://localhost:${PORT}/health`, (r) => {
+            r.resume();
+        }).on('error', () => {});
+    }, 15000);
 
     // ── BROWSER WATCHDOG: detect crashes and auto-restart ──
     setInterval(() => {
@@ -904,41 +904,43 @@ async function start() {
         }
     }, 30000);
 
-    console.log('[Server] Watchdog and keep-alive active — running 24/7');
+    // ── MEMORY MONITOR ──
+    setInterval(() => {
+        const mem = process.memoryUsage();
+        const rssMB = (mem.rss / 1024 / 1024).toFixed(1);
+        console.log('[Memory] RSS:', rssMB, 'MB | Heap:', (mem.heapUsed / 1024 / 1024).toFixed(1), '/', (mem.heapTotal / 1024 / 1024).toFixed(1), 'MB');
+    }, 60000);
+
+    console.log('[Server] Watchdog, keep-alive, and memory monitor active — running 24/7');
     console.log('');
 }
 
 // ─── GLOBAL ERROR HANDLERS — NEVER crash the process ─────────────────────
 process.on('uncaughtException', (err) => {
     console.error('[uncaughtException]', err.stack || err.message);
-    // Do NOT exit — keep running
 });
 
 process.on('unhandledRejection', (reason) => {
     console.error('[unhandledRejection]', reason && reason.stack ? reason.stack : reason);
-    // Do NOT exit — keep running
 });
 
-// SIGTERM from Hugging Face infrastructure — clean up but DO NOT exit
-// Hugging Face may send SIGTERM for idle timeout, but we want to stay alive
-process.on('SIGTERM', async () => {
-    console.log('[SIGTERM] Received — cleaning up sessions but staying alive');
-    for (const s of sessions.values()) await destroySession(s).catch(() => { });
-    // Do NOT call process.exit(0) — keep the server running
+// ─── SIGNAL HANDLERS — COMPLETELY IGNORE to prevent HF from killing us ───
+// Hugging Face sends SIGTERM when it thinks the Space is idle.
+// We ignore it entirely so the server stays alive forever.
+process.on('SIGTERM', () => {
+    console.log('[SIGTERM] Ignored — server stays alive');
 });
 
-process.on('SIGINT', async () => {
-    console.log('[SIGINT] Received — cleaning up sessions');
-    for (const s of sessions.values()) await destroySession(s).catch(() => { });
-    // Only exit on SIGINT (Ctrl+C) if running locally, not on HF
-    if (process.env.NODE_ENV === 'production') {
-        console.log('[SIGINT] Production mode — staying alive');
+process.on('SIGINT', () => {
+    // Only exit on Ctrl+C during local development
+    if (process.env.NODE_ENV === 'production' || process.env.SPACE_ID) {
+        console.log('[SIGINT] Ignored in production — server stays alive');
         return;
     }
+    console.log('[SIGINT] Local dev exit');
     process.exit(0);
 });
 
 start().catch(err => {
     console.error('[Startup] Fatal error:', err.message);
-    // Do NOT exit — try to start the server anyway
 });
