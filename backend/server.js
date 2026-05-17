@@ -1,5 +1,7 @@
 'use strict';
 
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const { chromium } = require('playwright');
@@ -847,52 +849,96 @@ async function start() {
     console.log('[Config] PAGE_WAIT:', PAGE_WAIT, 'ms');
     console.log('[Config] ENABLE_WATCH:', ENABLE_WATCH);
     console.log('');
-    await getBrowser();
-    console.log('[Server] Listening on 0.0.0.0:' + PORT);
-    console.log('[Server] Ready to accept requests');
-    console.log('');
-    // Hugging Face Spaces and most cloud platforms require binding to 0.0.0.0
-    const server = app.listen(PORT, '0.0.0.0', () =>
-        console.log(`🔗 LINK FETCHER → http://0.0.0.0:${PORT}`)
-    );
+
+    // Start the HTTP server first — always listening, even if browser fails
+    const server = app.listen(PORT, '0.0.0.0', () => {
+        console.log('[Server] Listening on 0.0.0.0:' + PORT);
+        console.log('[Server] Ready to accept requests');
+        console.log('');
+    });
+
+    // Server error handler — NEVER exit, always retry
     server.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
-            console.log(`[Port] ${PORT} in use — trying ${PORT + 1}…`);
+            console.log('[Server] Port', PORT, 'in use — retrying in 3s…');
             setTimeout(() => {
                 server.close();
-                app.listen(PORT + 1, '0.0.0.0', () =>
-                    console.log(`\n🔗 LINK FETCHER → http://0.0.0.0:${PORT + 1}\n`)
-                );
-            }, 1000);
+                server.listen(PORT, '0.0.0.0');
+            }, 3000);
         } else {
-            console.error(err);
-            process.exit(1);
+            console.error('[Server] Error:', err.message);
+            // Do NOT exit — let the server keep running
         }
     });
+
+    // Launch browser — if it fails, we still keep the server alive
+    try {
+        await getBrowser();
+        console.log('[Server] Browser ready');
+    } catch (err) {
+        console.error('[Server] Initial browser launch failed:', err.message);
+        console.log('[Server] Server will keep running — browser will auto-retry on next request');
+    }
+
+    // ── KEEP-ALIVE: prevent Hugging Face idle timeout ──
+    // Ping our own health endpoint every 60s to keep the Space awake
+    setInterval(() => {
+        const http = require('http');
+        http.get(`http://localhost:${PORT}/health`, (res) => {
+            res.resume();
+            res.on('end', () => { /* keep-alive ping succeeded */ });
+        }).on('error', () => { /* ignore — server might be restarting */ });
+    }, 60000);
+
+    // ── BROWSER WATCHDOG: detect crashes and auto-restart ──
+    setInterval(() => {
+        if (!browser || !browser.isConnected()) {
+            console.log('[Watchdog] Browser is down — restarting…');
+            browser = null;
+            browserReady = false;
+            getBrowser().then(() => {
+                console.log('[Watchdog] Browser restarted successfully');
+            }).catch(err => {
+                console.error('[Watchdog] Browser restart failed:', err.message);
+            });
+        }
+    }, 30000);
+
+    console.log('[Server] Watchdog and keep-alive active — running 24/7');
+    console.log('');
 }
 
-// ─── GLOBAL ERROR HANDLERS ────────────────────────────────────────────────
+// ─── GLOBAL ERROR HANDLERS — NEVER crash the process ─────────────────────
 process.on('uncaughtException', (err) => {
-    console.error('[uncaughtException]', err.message);
+    console.error('[uncaughtException]', err.stack || err.message);
+    // Do NOT exit — keep running
 });
 
 process.on('unhandledRejection', (reason) => {
-    console.error('[unhandledRejection]', reason && reason.message ? reason.message : reason);
+    console.error('[unhandledRejection]', reason && reason.stack ? reason.stack : reason);
+    // Do NOT exit — keep running
 });
 
+// SIGTERM from Hugging Face infrastructure — clean up but DO NOT exit
+// Hugging Face may send SIGTERM for idle timeout, but we want to stay alive
 process.on('SIGTERM', async () => {
-    console.log('\nSIGTERM — Shutting down…');
+    console.log('[SIGTERM] Received — cleaning up sessions but staying alive');
     for (const s of sessions.values()) await destroySession(s).catch(() => { });
-    if (browser) await browser.close().catch(() => { });
-    if (watchBrowserInstance) await watchBrowserInstance.close().catch(() => { });
-    process.exit(0);
+    // Do NOT call process.exit(0) — keep the server running
 });
 
 process.on('SIGINT', async () => {
-    console.log('\nShutting down…');
+    console.log('[SIGINT] Received — cleaning up sessions');
     for (const s of sessions.values()) await destroySession(s).catch(() => { });
-    if (browser) await browser.close().catch(() => { });
+    // Only exit on SIGINT (Ctrl+C) if running locally, not on HF
+    if (process.env.NODE_ENV === 'production') {
+        console.log('[SIGINT] Production mode — staying alive');
+        return;
+    }
     process.exit(0);
 });
 
-start().catch(err => { console.error('Startup error:', err); process.exit(1); });
+start().catch(err => {
+    console.error('[Startup] Fatal error:', err.message);
+    // Do NOT exit — try to start the server anyway
+});
