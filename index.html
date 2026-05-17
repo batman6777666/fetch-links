@@ -613,7 +613,7 @@
     </footer>
 
     <script>
-        const API_BASE = "https://bestfriend33-fetch-links-backend.hf.space";
+        const API_BASE = "https://fetch-links-ptmo.onrender.com";
 
         let toastTimer = null;
         function showToast(msg) {
@@ -694,6 +694,8 @@
         // ── STATE ──
         let fetchES = null, isFetching = false;
         let fetchLinks = [], fetchMap = {}, fetchTotal = 0;
+        let fetchRetryCount = 0;
+        const MAX_FETCH_RETRIES = 3;
 
         function startFetching() {
             if (isFetching) return;
@@ -701,13 +703,65 @@
             if (!urls.length) { showToast('Paste at least one URL'); return; }
 
             resetFetchResults(); isFetching = true;
+            fetchRetryCount = 0;
             setBtn(true, 'Fetching…');
             showSB(); setSBText('Connecting…');
             document.getElementById('fetchResultsWrap').style.display = 'block';
 
+            connectFetch(urls);
+        }
+
+        function connectFetch(urls) {
+            if (fetchES) { fetchES.close(); fetchES = null; }
             fetchES = new EventSource(API_BASE + '/api/fetch?urls=' + encodeURIComponent(urls.join(',')));
-            fetchES.onmessage = e => { try { handleEvent(JSON.parse(e.data)); } catch { } };
-            fetchES.onerror = () => { if (isFetching) { setSBText('Connection lost'); stopFetch(); } };
+
+            let connected = false;
+            let errorCount = 0;
+
+            fetchES.onopen = () => {
+                console.log('[SSE] Connection opened');
+            };
+
+            fetchES.onmessage = e => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.type === 'connected') {
+                        connected = true;
+                        setSBText('Connected — scanning…');
+                    }
+                    handleEvent(data);
+                } catch (err) {
+                    console.error('[SSE] Parse error:', err);
+                }
+            };
+
+            fetchES.onerror = () => {
+                errorCount++;
+                console.log('[SSE] Error event #' + errorCount + ', connected=' + connected + ', readyState=' + fetchES.readyState);
+
+                if (fetchES.readyState === EventSource.CLOSED) {
+                    // Connection was closed permanently
+                    if (connected) {
+                        // Was connected but lost — likely done or server ended it
+                        if (isFetching) {
+                            setSBText('Connection closed by server');
+                            stopFetch();
+                        }
+                    } else {
+                        // Never connected — retry
+                        if (fetchRetryCount < MAX_FETCH_RETRIES) {
+                            fetchRetryCount++;
+                            setSBText('Connection failed, retrying (' + fetchRetryCount + '/' + MAX_FETCH_RETRIES + ')…');
+                            console.log('[SSE] Retrying in 2s…');
+                            setTimeout(() => { if (isFetching) connectFetch(urls); }, 2000);
+                        } else {
+                            setSBText('Connection failed after ' + MAX_FETCH_RETRIES + ' retries');
+                            stopFetch();
+                        }
+                    }
+                }
+                // readyState === CONNECTING means EventSource is auto-reconnecting — do nothing
+            };
         }
 
         function handleEvent(d) {
