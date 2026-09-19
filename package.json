@@ -1,7 +1,7 @@
 {
-    "name": "link-fetcher",
-    "version": "1.0.0",
-    "description": "LINK FETCHER - Automated direct download link extractor",
+    "name": "fetch-links",
+    "version": "2.0.0",
+    "description": "FETCH LINKS - Ultra-fast automated direct download link extractor & stream suite",
     "main": "server.js",
     "scripts": {
         "start": "node server.js",
@@ -9,8 +9,12 @@
         "install-browser": "npx playwright install chromium"
     },
     "dependencies": {
+        "cheerio": "^1.2.0",
+        "cors": "^2.8.6",
         "express": "^4.18.2",
-        "playwright": "^1.42.1",
-        "uuid": "^9.0.0"
+        "uuid": "^9.0.1"
+    },
+    "optionalDependencies": {
+        "playwright": "^1.42.1"
     }
 }
