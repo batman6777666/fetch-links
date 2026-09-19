@@ -9,9 +9,11 @@
         "install-browser": "npx playwright install chromium"
     },
     "dependencies": {
+        "@sparticuz/chromium": "^153.0.0",
         "cheerio": "^1.2.0",
         "cors": "^2.8.6",
         "express": "^4.18.2",
+        "playwright-core": "^1.63.0",
         "uuid": "^9.0.1"
     },
     "optionalDependencies": {

@@ -1,9 +1,8 @@
 'use strict';
 
-const { RequestSession, getEpisodes, resolveGDFlix } = require('../lib/extractor');
+const { BrowserSession, getEpisodes, resolveGDFlix } = require('../lib/extractor');
 
-// Concurrency runner helper
-function makeQueue(concurrency = 4) {
+function makeQueue(concurrency = 3) {
     let active = 0;
     const queue = [];
     const next = () => {
@@ -58,32 +57,45 @@ module.exports = async function handler(req, res) {
         }
     };
 
-    // Keepalive ping for Vercel proxy
     const pingInterval = setInterval(() => {
         if (!closed && !res.writableEnded) {
             res.write(':keepalive\n\n');
         }
     }, 15000);
 
-    const session = new RequestSession();
-    const enqueue = makeQueue(4);
+    let session = null;
+    try {
+        session = new BrowserSession();
+        await session.init();
+    } catch (err) {
+        console.error('[Fetch] Browser start failed:', err);
+        send({ type: 'error', message: 'Browser engine start failed: ' + err.message });
+        clearInterval(pingInterval);
+        return res.end();
+    }
+
+    req.on('close', () => {
+        if (session) session.destroy().catch(() => {});
+    });
+
+    const enqueue = makeQueue(3);
     let total = 0;
     let done = 0;
 
     try {
         send({ type: 'connected' });
-        send({ type: 'status', message: 'Scanning FXLinks series pages for episodes…' });
+        send({ type: 'status', message: 'Scanning FXLinks series pages with Chromium…' });
 
         const allEps = [];
         for (let i = 0; i < urls.length; i++) {
-            if (closed) break;
+            if (closed || session.aborted) break;
             const targetUrl = urls[i];
             send({ type: 'status', message: `Scanning URL ${i + 1} of ${urls.length}…` });
 
             try {
                 const eps = await getEpisodes(targetUrl, session);
                 if (!eps.length) {
-                    send({ type: 'warning', message: `No episodes detected in URL ${i + 1}` });
+                    send({ type: 'warning', message: `No episodes found in URL ${i + 1}` });
                 }
                 allEps.push(...eps);
             } catch (err) {
@@ -94,6 +106,7 @@ module.exports = async function handler(req, res) {
         if (!allEps.length) {
             send({ type: 'done', total: 0 });
             clearInterval(pingInterval);
+            if (session) await session.destroy().catch(() => {});
             return res.end();
         }
 
@@ -101,7 +114,7 @@ module.exports = async function handler(req, res) {
         send({ type: 'episodes_found', count: total, episodes: allEps.map(e => e.text) });
 
         await Promise.allSettled(allEps.map(ep => enqueue(async () => {
-            if (closed) {
+            if (closed || session.aborted) {
                 done++;
                 send({ type: 'result', episode: ep.text, status: 'failed', error: 'Aborted', processed: done, total });
                 return;
@@ -125,5 +138,6 @@ module.exports = async function handler(req, res) {
             send({ type: 'done', total });
             res.end();
         }
+        if (session) await session.destroy().catch(() => {});
     }
 };

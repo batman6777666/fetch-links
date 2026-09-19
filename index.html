@@ -4,11 +4,11 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Fetch Links — Ultra-Fast Automated Direct Download Link Extractor</title>
-    <meta name="description" content="Extract direct high-speed download links from FXLinks, GDFlix, and Google Drive in milliseconds. Optimized for Vercel serverless." />
+    <title>Fetch Links — Series Direct Link Extractor</title>
+    <meta name="description" content="Extract direct high-speed download links from FXLinks series in seconds. Optimized for Vercel." />
     <meta name="theme-color" content="#06070a" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔗</text></svg>" />
-    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="/css/style.css" />
 </head>
 
 <body>
@@ -19,7 +19,7 @@
         <header>
             <div class="brand-badge">
                 <span class="dot"></span>
-                <span>Vercel Serverless Ready v2.0</span>
+                <span>Series Extractor v2.0</span>
             </div>
 
             <div class="title-row">
@@ -32,7 +32,7 @@
                 <h1>Fetch Links</h1>
             </div>
 
-            <p class="tagline">Extract direct CDN download & video stream links automatically with sub-second performance.</p>
+            <p class="tagline">Automated direct download link extractor for series. Scrapes episodes and bypasses intermediate pages.</p>
 
             <div class="header-actions">
                 <button class="icon-btn" title="Recent History" onclick="openHistory()">
@@ -44,102 +44,22 @@
             </div>
         </header>
 
-        <!-- WORKSPACE TABS -->
-        <nav class="nav-tabs">
-            <button class="tab-btn active" data-tab="series">
-                <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                <span>Series Extractor</span>
-            </button>
-            <button class="tab-btn" data-tab="cloud">
-                <svg viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
-                <span>Google Drive / Cloud Direct</span>
-            </button>
-            <button class="tab-btn" data-tab="inspect">
-                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                <span>Link Inspector & Prober</span>
-            </button>
-        </nav>
-
         <!-- MAIN CARD -->
         <main class="glass-card">
-            <!-- TAB 1: SERIES FETCHER -->
-            <section class="tab-content active" id="tab-series">
+            <!-- INPUT SECTION -->
+            <section class="extractor-section">
                 <div class="input-header">
-                    <label class="input-label" for="seriesInput">FXLinks / Series URLs (1–10)</label>
-                    <span class="input-hint">1 URL per line</span>
+                    <label class="input-label" for="seriesInput">FXLinks URLs (1–10)</label>
+                    <span class="input-hint">Paste FXLinks URLs here, one per line</span>
                 </div>
-                <textarea id="seriesInput" class="modern-input" placeholder="https://fxlinks.org/archives/...&#10;https://gdflix.org/file/..." spellcheck="false"></textarea>
+                <textarea id="seriesInput" class="modern-input" placeholder="Paste FXLinks URLs here, one per line&#10;e.g. https://fxlinks.org/archives/..." spellcheck="false" autocomplete="off"></textarea>
 
                 <div class="btn-group">
                     <button id="seriesBtn" class="btn btn-primary" onclick="startSeriesFetch()">
                         <span class="spinner"></span>
-                        <span class="btn-label">Start Fetching Series</span>
+                        <span class="btn-label">Start Fetching</span>
                     </button>
                     <button class="btn btn-secondary" onclick="clearAll()">Clear</button>
-                </div>
-            </section>
-
-            <!-- TAB 2: CLOUD DIRECT -->
-            <section class="tab-content" id="tab-cloud">
-                <div class="input-header">
-                    <label class="input-label" for="cloudInput">Google Drive & Cloud File Links (1–30)</label>
-                    <span class="input-hint">Direct CDN & Virus Bypass</span>
-                </div>
-                <textarea id="cloudInput" class="modern-input" placeholder="https://drive.google.com/file/d/.../view&#10;https://drive.usercontent.google.com/download?id=..." spellcheck="false"></textarea>
-
-                <div class="btn-group">
-                    <button id="cloudBtn" class="btn btn-primary" onclick="startCloudDirect()">
-                        <span class="spinner"></span>
-                        <span class="btn-label">Resolve Direct Links</span>
-                    </button>
-                    <button class="btn btn-secondary" onclick="clearAll()">Clear</button>
-                </div>
-            </section>
-
-            <!-- TAB 3: LINK INSPECTOR -->
-            <section class="tab-content" id="tab-inspect">
-                <div class="input-header">
-                    <label class="input-label" for="inspectInput">Deep Link Inspection & Stream Validator</label>
-                    <span class="input-hint">Checks Status, Size, Content-Type & Range</span>
-                </div>
-                <input type="url" id="inspectInput" class="modern-input" placeholder="https://video-downloads.googleusercontent.com/..." spellcheck="false" />
-
-                <div class="btn-group">
-                    <button id="inspectBtn" class="btn btn-primary" onclick="runInspector()">
-                        <span class="spinner"></span>
-                        <span class="btn-label">Inspect Link</span>
-                    </button>
-                    <button class="btn btn-secondary" onclick="document.getElementById('inspectInput').value = ''">Clear</button>
-                </div>
-
-                <div class="inspect-result-box" id="inspectResultBox">
-                    <div class="inspect-stat-grid">
-                        <div class="stat-item">
-                            <span class="stat-label">HTTP Status</span>
-                            <span class="stat-value" id="statStatus">-</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">File Size</span>
-                            <span class="stat-value" id="statSize">-</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Content-Type</span>
-                            <span class="stat-value" id="statType">-</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Latency</span>
-                            <span class="stat-value" id="statLatency">-</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Resumable</span>
-                            <span class="stat-value" id="statResume">-</span>
-                        </div>
-                    </div>
-                    <div style="display:flex; justify-content:flex-end; margin-top:0.5rem;">
-                        <button class="btn btn-primary" id="inspectStreamBtn" style="display:none; padding:0.5rem 1rem; font-size:0.8rem;">
-                            Stream Video Now
-                        </button>
-                    </div>
                 </div>
             </section>
 
@@ -161,12 +81,12 @@
             <div class="results-container" id="resultsContainer">
                 <div class="results-toolbar">
                     <div class="results-heading">
-                        <span>Extracted Links</span>
+                        <span>Results</span>
                         <span class="badge-count" id="resultsCount">0 links</span>
                     </div>
 
                     <div class="toolbar-actions">
-                        <input type="text" class="filter-input" id="filterInput" placeholder="Filter results…" />
+                        <input type="text" class="filter-input" id="filterInput" placeholder="Filter episodes…" />
 
                         <button class="btn btn-secondary" style="padding:0.4rem 0.8rem; font-size:0.78rem;" onclick="copyAllLinks()">
                             Copy All
@@ -204,12 +124,12 @@
 
         <!-- FOOTER -->
         <footer>
-            <span>Built with precision &middot; High performance serverless architecture</span>
-            <span>Deployable with 1-click on Vercel Free Plan</span>
+            <span>Built with precision &middot; Automated series direct link extractor</span>
+            <span>Optimized for 1-click Vercel Free Plan</span>
         </footer>
     </div>
 
-    <!-- STREAM STUDIO MODAL -->
+    <!-- STREAM STUDIO MODAL (In-Browser Video Player) -->
     <div class="modal-backdrop" id="playerModal">
         <div class="player-modal">
             <div class="modal-header">
@@ -249,12 +169,12 @@
                 <div>
                     <label class="input-label" style="margin-bottom:0.4rem;">Custom Backend URL</label>
                     <input type="text" id="customApiInput" class="modern-input" placeholder="Leave empty for auto (Same Origin)" />
-                    <span class="input-hint" style="margin-top:0.3rem; display:block;">By default, uses your Vercel deployment origin automatically.</span>
+                    <span class="input-hint" style="margin-top:0.3rem; display:block;">By default, connects to your deployment origin automatically.</span>
                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <div>
                         <span style="font-weight:600; font-size:0.85rem; color:var(--text-main); display:block;">Audio Synthesizer</span>
-                        <span style="font-size:0.75rem; color:var(--text-dim);">Pleasant sound effects on extraction finish</span>
+                        <span style="font-size:0.75rem; color:var(--text-dim);">Pleasant sound effects on completion</span>
                     </div>
                     <input type="checkbox" id="soundToggle" style="width:18px; height:18px; cursor:pointer;" checked />
                 </div>
@@ -266,10 +186,10 @@
         </div>
     </div>
 
-    <!-- TOASTS -->
+    <!-- TOAST NOTIFICATIONS -->
     <div id="toast-container"></div>
 
-    <script src="js/app.js"></script>
+    <script src="/js/app.js"></script>
 </body>
 
 </html>

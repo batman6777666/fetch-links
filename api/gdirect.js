@@ -1,8 +1,8 @@
 'use strict';
 
-const { RequestSession, resolveGoogleDrive } = require('../lib/extractor');
+const { BrowserSession, resolveGoogleDrive } = require('../lib/extractor');
 
-function makeQueue(concurrency = 4) {
+function makeQueue(concurrency = 3) {
     let active = 0;
     const queue = [];
     const next = () => {
@@ -63,8 +63,22 @@ module.exports = async function handler(req, res) {
         }
     }, 15000);
 
-    const session = new RequestSession();
-    const enqueue = makeQueue(5);
+    let session = null;
+    try {
+        session = new BrowserSession();
+        await session.init();
+    } catch (err) {
+        console.error('[GDirect] Browser start failed:', err);
+        send({ type: 'error', message: 'Browser engine start failed: ' + err.message });
+        clearInterval(pingInterval);
+        return res.end();
+    }
+
+    req.on('close', () => {
+        if (session) session.destroy().catch(() => {});
+    });
+
+    const enqueue = makeQueue(3);
     const total = urls.length;
     let done = 0;
 
@@ -73,7 +87,7 @@ module.exports = async function handler(req, res) {
 
     try {
         await Promise.allSettled(urls.map((url, i) => enqueue(async () => {
-            if (closed) {
+            if (closed || session.aborted) {
                 done++;
                 send({ type: 'result', index: i, originalUrl: url, status: 'failed', error: 'Aborted', processed: done, total });
                 return;
@@ -97,5 +111,6 @@ module.exports = async function handler(req, res) {
             send({ type: 'done', total });
             res.end();
         }
+        if (session) await session.destroy().catch(() => {});
     }
 };

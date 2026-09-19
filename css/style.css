@@ -332,16 +332,11 @@ h1 {
     box-shadow: var(--shadow-lg), var(--shadow-glow);
 }
 
-/* Tab Panes */
-.tab-content {
-    display: none;
+.extractor-section {
+    display: flex;
     flex-direction: column;
     gap: 1.25rem;
     animation: fadeIn 0.3s ease;
-}
-
-.tab-content.active {
-    display: flex;
 }
 
 /* Form Groups & Inputs */
